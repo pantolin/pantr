@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling>=1.12.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pantr"
+version = "0.1.0"
+description = "Polynomial And NURBS Toolkit"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT License" }
+authors = [{ name = "Pablo Antolin", email = "pablo.antolin@epfl.ch" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "numpy>=1.26,<3",
+  "scipy>=1.11,<2",
+  "matplotlib>=3.8,<4",
+  "numba>=0.59,<0.61",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.4,<9",
+  "pytest-cov>=4,<6",
+  "mypy>=1.10,<2",
+  "ruff>=0.6.0,<0.7",
+  "pre-commit>=3.6,<4",
+]
+docs = [
+  "sphinx>=7.2,<8",
+  "sphinx-rtd-theme>=1.3,<2",
+  "sphinx-rtd-dark-mode>=1.3,<2",
+  "breathe>=4.35,<5",
+  "jupytext>=1.16,<2",
+  "markdown>=3.5,<4",
+  "myst-parser>=2.0,<3",
+]
+
+[project.urls]
+Homepage = "https://github.com/pablodroca/pantr"
+Documentation = "https://pantr.readthedocs.io"
+Source = "https://github.com/pablodroca/pantr"
+Issues = "https://github.com/pablodroca/pantr/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = [{ include = "pantr", from = "src" }]
+
+[tool.hatch.version]
+path = "src/pantr/__init__.py"
+
