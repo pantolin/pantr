@@ -84,6 +84,7 @@ jobs:
 
   tests:
     name: Tests with coverage
+    needs: [lint, type-check]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -116,6 +117,7 @@ jobs:
 
   docs:
     name: Build documentation
+    needs: [lint, type-check]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
