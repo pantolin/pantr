@@ -1,11 +1,13 @@
 """Sphinx configuration for PaNTr documentation.
-Initializes metadata, extensions, and build parameters."""
+
+Initializes metadata, extensions, and build parameters.
+"""
 
 from __future__ import annotations
 
 import importlib.util
-import warnings
 import sys
+import warnings
 from datetime import date
 from pathlib import Path
 from typing import Final
@@ -15,9 +17,7 @@ SRC_PATH: Final[Path] = PROJECT_ROOT / "src"
 
 sys.path.insert(0, str(SRC_PATH))
 
-pantr_spec = importlib.util.spec_from_file_location(
-    "pantr", SRC_PATH / "pantr" / "__init__.py"
-)
+pantr_spec = importlib.util.spec_from_file_location("pantr", SRC_PATH / "pantr" / "__init__.py")
 if pantr_spec is None or pantr_spec.loader is None:
     msg = f"Unable to locate pantr package at {SRC_PATH / 'pantr' / '__init__.py'}"
     raise ImportError(msg)
