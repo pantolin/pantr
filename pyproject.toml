@@ -52,7 +52,7 @@ Source = "https://github.com/pablodroca/pantr"
 Issues = "https://github.com/pablodroca/pantr/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = [{ include = "pantr", from = "src" }]
+packages = ["src/pantr"]
 
 [tool.hatch.version]
 path = "src/pantr/__init__.py"
