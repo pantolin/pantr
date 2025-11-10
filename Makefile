@@ -11,7 +11,7 @@ help:
 	@echo "  ruff-format-check : check Ruff formatting without changing files."
 	@echo "  type-check: run mypy static type checker."
 	@echo "  docs      : build the documentation."
-	@echo "  before_push: run lint, format, format check, type check, tests, coverage, and docs."
+	@echo "  befor-pr: run lint, format, format check, type check, tests, coverage, and docs."
 
 # Run the test suite with Numba JIT enabled
 test:
@@ -50,5 +50,5 @@ type-check:
 docs:
 	$(MAKE) -C docs html SPHINXOPTS="$(SPHINXOPTS)"
 
-# Aggregate target to run all checks before pushing
-before_push: ruff-lint ruff-format ruff-format-check type-check test coverage docs
+# Aggregate target to run all checks before creating a pull request
+before-pr: ruff-lint ruff-format ruff-format-check type-check test coverage docs
