@@ -22,6 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -37,16 +38,32 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-ruff-
 
-      - name: Install dev dependencies
+      - name: Cache virtualenv
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-${{ steps.setup-python.outputs.python-version }}-
+
+      - name: Create venv and install dev deps (on cache miss)
+        if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
       - name: Ruff lint
-        run: make ruff-lint
+        run: |
+          . .venv/bin/activate
+          make ruff-lint
 
       - name: Ruff formatting check
-        run: make ruff-format-check
+        run: |
+          . .venv/bin/activate
+          make ruff-format-check
 
   type-check:
     name: Type check (mypy)
@@ -59,6 +76,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -74,13 +92,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-mypy-
 
-      - name: Install dev dependencies
+      - name: Cache virtualenv
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-${{ steps.setup-python.outputs.python-version }}-
+
+      - name: Create venv and install dev deps (on cache miss)
+        if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
       - name: Type check
-        run: make type-check
+        run: |
+          . .venv/bin/activate
+          make type-check
 
   tests:
     name: Tests with coverage
@@ -94,6 +126,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -101,13 +134,27 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
 
-      - name: Install dev dependencies
+      - name: Cache virtualenv
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-${{ steps.setup-python.outputs.python-version }}-
+
+      - name: Create venv and install dev deps (on cache miss)
+        if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
       - name: Run pytest with coverage
-        run: make coverage
+        run: |
+          . .venv/bin/activate
+          make coverage
 
       - name: Upload coverage xml
         uses: actions/upload-artifact@v4
@@ -132,6 +179,7 @@ jobs:
             ${{ runner.os }}-sphinx-
 
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
@@ -139,10 +187,24 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
 
-      - name: Install documentation dependencies
+      - name: Cache virtualenv
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'docs/**/*.md', 'docs/conf.py') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-${{ steps.setup-python.outputs.python-version }}-
+
+      - name: Create venv and install docs deps (on cache miss)
+        if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -e ".[docs]"
 
       - name: Build docs
-        run: make docs SPHINXOPTS="-W --keep-going -j auto"
+        run: |
+          . .venv/bin/activate
+          make docs SPHINXOPTS="-W --keep-going -j auto"
