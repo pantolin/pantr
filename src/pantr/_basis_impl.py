@@ -1,4 +1,7 @@
-from typing import Any, cast
+"""Numba-backed core implementations for 1D Bernstein basis evaluation."""
+
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import numba as nb  # type: ignore[import-untyped]
 import numpy as np
@@ -6,7 +9,18 @@ import numpy.typing as npt
 
 from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
 
-nb_jit = cast(Any, nb.jit)
+F = TypeVar("F", bound=Callable[..., Any])
+
+if TYPE_CHECKING:
+    # During type-checking, make the decorator a no-op that preserves types.
+    def nb_jit(*args: object, **kwargs: object) -> Callable[[F], F]:
+        def decorator(func: F) -> F:
+            return func
+
+        return decorator
+else:
+    # At runtime, use the real Numba decorator.
+    nb_jit = nb.jit  # type: ignore[attr-defined]
 
 
 @nb_jit(
@@ -55,21 +69,27 @@ def _eval_Bernstein_basis_1D_core(
     """
     if n == 0:
         # The basis is just B_0,0(pts) = 1
-        return np.ones((t.shape[0], 1), dtype=t.dtype)
+        ones: npt.NDArray[np.float32 | np.float64] = np.ones((t.shape[0], 1), dtype=t.dtype)
+        return ones
 
     # Initialize the output array
     # B[j, i] will hold B_i,n(t_j)
-    B = np.zeros((t.shape[0], n + 1), dtype=t.dtype)
+    B: npt.NDArray[np.float32 | np.float64] = np.zeros((t.shape[0], n + 1), dtype=t.dtype)
 
     # 1. Handle points where t is not 1.0
     idx_t_ne_1 = np.where(t != 1.0)[0]
     if idx_t_ne_1.size > 0:
-        t_ne_1 = t[idx_t_ne_1]
-        B_ne_1 = np.zeros((t_ne_1.shape[0], n + 1), dtype=t.dtype)
+        t_ne_1: npt.NDArray[np.float32 | np.float64] = t[idx_t_ne_1]
+        B_ne_1: npt.NDArray[np.float32 | np.float64] = np.zeros(
+            (t_ne_1.shape[0], n + 1), dtype=t.dtype
+        )
         B_ne_1[:, 0] = np.power(1.0 - t_ne_1, n)
-        t_over_1mt = t_ne_1 / (1.0 - t_ne_1)
+        t_over_1mt: npt.NDArray[np.float32 | np.float64] = t_ne_1 / (1.0 - t_ne_1)
         for i in range(1, n + 1):
-            B_ne_1[:, i] = B_ne_1[:, i - 1] * ((n - i + 1) / i) * t_over_1mt
+            const_factor: npt.NDArray[np.float32 | np.float64] = np.full(
+                t_ne_1.shape, (n - i + 1) / i, dtype=t.dtype
+            )
+            B_ne_1[:, i] = B_ne_1[:, i - 1] * const_factor * t_over_1mt
         B[idx_t_ne_1] = B_ne_1
 
     # 2. Handle points where t is 1.0
@@ -116,7 +136,11 @@ def _eval_Bernstein_basis_1D_impl(n: int, t: npt.ArrayLike) -> npt.NDArray[np.fl
 
     t = _normalize_points_1D(t)
 
-    B = _eval_Bernstein_basis_1D_core(np.int32(n), t)
+    # Narrow union dtype for mypy by branching on dtype and casting accordingly.
+    if t.dtype == np.float32:
+        B = _eval_Bernstein_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
+    else:
+        B = _eval_Bernstein_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
 
     # 5. Return
     return _normalize_basis_output_1D(B, input_shape)
