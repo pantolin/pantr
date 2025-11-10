@@ -2,6 +2,8 @@
 
 ## Installation
 
+Requires Python 3.10–3.12.
+
 ```bash
 pip install pantr
 ```
@@ -32,4 +34,3 @@ pip install -e ".[docs]"
 cd docs
 make html
 ```
-

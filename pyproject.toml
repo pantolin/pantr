@@ -7,7 +7,7 @@ name = "pantr"
 version = "0.1.0"
 description = "Polynomial And NURBS Toolkit"
 readme = "README.md"
-requires-python = ">=3.12, <3.13"
+requires-python = ">=3.10, <3.13"
 license = { text = "MIT License" }
 authors = [{ name = "Pablo Antolin", email = "pablo.antolin@epfl.ch" }]
 classifiers = [
@@ -17,6 +17,8 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering",
 ]
@@ -57,4 +59,3 @@ packages = ["src/pantr"]
 
 [tool.hatch.version]
 path = "src/pantr/__init__.py"
-

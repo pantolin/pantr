@@ -14,6 +14,9 @@ jobs:
   lint:
     name: Lint (Ruff)
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,7 +24,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: "pip"
           cache-dependency-path: |
             pyproject.toml
@@ -48,6 +51,9 @@ jobs:
   type-check:
     name: Type check (mypy)
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,7 +61,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: "pip"
           cache-dependency-path: |
             pyproject.toml
@@ -79,6 +85,9 @@ jobs:
   tests:
     name: Tests with coverage
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -86,7 +95,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: "pip"
           cache-dependency-path: |
             pyproject.toml
@@ -123,7 +132,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.10"
           cache: "pip"
           cache-dependency-path: |
             pyproject.toml
