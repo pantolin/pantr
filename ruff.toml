@@ -25,5 +25,14 @@ ignore = ["D104"]
 convention = "google"
 
 [lint.per-file-ignores]
-"tests/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "D105", "ANN401"]
+"tests/**/*.py" = [
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D105",
+  "ANN401",
+  "ANN101",
+]
 "docs/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "D105"]
