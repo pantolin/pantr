@@ -1,0 +1,192 @@
+"""Tolerance utilities for floating-point comparisons in IGA applications."""
+
+from functools import lru_cache
+from typing import NamedTuple, TypedDict
+
+import numpy as np
+from numpy import typing as npt
+
+
+@lru_cache(maxsize=None)
+def _check_dtype(dtype: npt.DTypeLike) -> None:
+    """Ensure the dtype is a supported NumPy floating-point dtype.
+
+    Args:
+        dtype (npt.DTypeLike): Input dtype. Can be a NumPy dtype, a
+            floating-point type, or a string representation (e.g., "float64").
+
+    Raises:
+        ValueError: If dtype is not one of float16, float32, float64, or
+            longdouble.
+    """
+    dtype_obj = np.dtype(dtype)
+    if dtype_obj.type not in (np.float16, np.float32, np.float64, np.longdouble):
+        raise ValueError(f"Unsupported dtype: {dtype}")
+
+
+class _TolerancePreset(NamedTuple):
+    """A named tuple to hold tolerance values for different floating-point types."""
+
+    float16: float
+    float32: float
+    float64: float
+    longdouble: float
+
+
+_TOLERANCE_PRESETS = {
+    "default": _TolerancePreset(1e-3, 1e-6, 1e-12, 1e-15),
+    "strict": _TolerancePreset(1e-4, 1e-7, 1e-15, 1e-18),
+    "conservative": _TolerancePreset(1e-2, 1e-5, 1e-10, 1e-12),
+}
+
+
+def _get_tolerance(
+    dtype: npt.DTypeLike,
+    preset: _TolerancePreset,
+) -> float:
+    """Get the tolerance value for a specific dtype from a preset.
+
+    Args:
+        dtype (npt.DTypeLike): NumPy floating-point data type.
+        preset (_TolerancePreset): A named tuple containing tolerance values.
+
+    Returns:
+        float: Tolerance value for the given dtype.
+
+    Raises:
+        ValueError: If dtype is not a supported floating-point type.
+    """
+    _check_dtype(dtype)
+    dtype_obj = np.dtype(dtype)
+
+    if dtype_obj.type == np.float16:
+        return preset.float16
+    elif dtype_obj.type == np.float32:
+        return preset.float32
+    elif dtype_obj.type == np.float64:
+        return preset.float64
+    else:  # if dtype_obj.type == np.longdouble:
+        return preset.longdouble
+
+
+def get_default_tolerance(dtype: npt.DTypeLike) -> float:
+    """Get a reasonable default tolerance for floating-point comparisons.
+
+    Args:
+        dtype (npt.DTypeLike): NumPy floating-point data type or numpy scalar
+            type.
+
+    Returns:
+        float: Recommended tolerance value for the given dtype.
+
+    Raises:
+        ValueError: If dtype is not a supported floating-point type.
+
+    Example:
+        >>> get_default_tolerance(np.float32)
+        1e-06
+        >>> get_default_tolerance("float64")
+        1e-12
+    """
+    return _get_tolerance(dtype, _TOLERANCE_PRESETS["default"])
+
+
+def get_strict_tolerance(dtype: npt.DTypeLike) -> float:
+    """Get a strict tolerance for high-precision floating-point comparisons.
+
+    Args:
+        dtype (npt.DTypeLike): NumPy floating-point data type.
+
+    Returns:
+        float: Strict tolerance value for the given dtype. Typically used for
+            parametric coordinates requiring high precision.
+
+    Raises:
+        ValueError: If dtype is not a supported floating-point type.
+    """
+    return _get_tolerance(dtype, _TOLERANCE_PRESETS["strict"])
+
+
+def get_conservative_tolerance(dtype: npt.DTypeLike) -> float:
+    """Get a conservative tolerance for robust floating-point comparisons.
+
+    Args:
+        dtype (npt.DTypeLike): NumPy floating-point data type.
+
+    Returns:
+        float: Conservative tolerance value for the given dtype. Used when
+            robustness is more important than precision.
+
+    Raises:
+        ValueError: If dtype is not a supported floating-point type.
+    """
+    return _get_tolerance(dtype, _TOLERANCE_PRESETS["conservative"])
+
+
+def get_machine_epsilon(dtype: npt.DTypeLike) -> float:
+    """Get machine epsilon for a given floating-point dtype.
+
+    Machine epsilon is the smallest positive number that, when added to 1.0,
+    produces a result different from 1.0. It represents the relative error
+    in floating-point arithmetic for the given precision.
+
+    Args:
+        dtype (npt.DTypeLike): NumPy floating-point data type.
+
+    Returns:
+        float: Machine epsilon for the given dtype.
+
+    Raises:
+        ValueError: If dtype is not a supported floating-point type.
+    """
+    _check_dtype(dtype)
+
+    return float(np.finfo(dtype).eps)
+
+
+class ToleranceInfo(TypedDict):
+    """A TypedDict holding comprehensive tolerance and precision information."""
+
+    dtype: npt.DTypeLike
+    machine_epsilon: float
+    default_tolerance: float
+    strict_tolerance: float
+    conservative_tolerance: float
+    precision_bits: int
+    precision_decimals: int
+    resolution: float
+    max_value: float
+    min_value: float
+
+
+def get_tolerance_info(
+    dtype: npt.DTypeLike,
+) -> ToleranceInfo:
+    """Get comprehensive tolerance information for a dtype.
+
+    Args:
+        dtype (npt.DTypeLike): NumPy floating-point data type.
+
+    Returns:
+        ToleranceInfo: Dictionary containing tolerance information including
+            machine epsilon, default/strict/conservative tolerances, precision
+            bits, and min/max values for the dtype.
+
+    Raises:
+        ValueError: If dtype is not a supported floating-point type.
+    """
+    _check_dtype(dtype)
+    finfo = np.finfo(dtype)
+
+    return {
+        "dtype": dtype,
+        "machine_epsilon": get_machine_epsilon(dtype),
+        "default_tolerance": get_default_tolerance(dtype),
+        "strict_tolerance": get_strict_tolerance(dtype),
+        "conservative_tolerance": get_conservative_tolerance(dtype),
+        "precision_bits": finfo.precision,
+        "precision_decimals": finfo.precision,
+        "resolution": float(finfo.resolution),
+        "max_value": float(finfo.max),
+        "min_value": float(finfo.tiny),
+    }
