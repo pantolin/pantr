@@ -12,6 +12,8 @@ import pytest
 
 from pantr.basis import eval_Bernstein_basis_1D
 
+NEGATIVE_TOL: float = 1e-10
+
 
 class TestEvalBernsteinBasis1D:
     """Test suite for eval_Bernstein_basis_1D function."""
@@ -72,9 +74,7 @@ class TestEvalBernsteinBasis1D:
         pts = np.array([0.0, 0.5, 1.0], dtype=np.float32)
         result = eval_Bernstein_basis_1D(2, pts)
         assert result.dtype == np.float32
-        expected = np.array(
-            [[1.0, 0.0, 0.0], [0.25, 0.5, 0.25], [0.0, 0.0, 1.0]], dtype=np.float32
-        )
+        expected = np.array([[1.0, 0.0, 0.0], [0.25, 0.5, 0.25], [0.0, 0.0, 1.0]], dtype=np.float32)
         npt.assert_allclose(result, expected)
 
     def test_float64_dtype(self) -> None:
@@ -82,9 +82,7 @@ class TestEvalBernsteinBasis1D:
         pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
         result = eval_Bernstein_basis_1D(2, pts)
         assert result.dtype == np.float64
-        expected = np.array(
-            [[1.0, 0.0, 0.0], [0.25, 0.5, 0.25], [0.0, 0.0, 1.0]], dtype=np.float64
-        )
+        expected = np.array([[1.0, 0.0, 0.0], [0.25, 0.5, 0.25], [0.0, 0.0, 1.0]], dtype=np.float64)
         npt.assert_allclose(result, expected)
 
     def test_int_input_converted_to_float64(self) -> None:
@@ -113,7 +111,8 @@ class TestEvalBernsteinBasis1D:
         degree = 3
         pts = np.linspace(0.0, 1.0, 21)
         result = eval_Bernstein_basis_1D(degree, pts)
-        assert np.all(result >= -1e-10)  # Allow small numerical errors
+        # Allow small numerical errors
+        assert np.all(result >= -NEGATIVE_TOL)
 
     def test_2d_input_shape_preservation(self) -> None:
         """Test that 2D input arrays preserve shape correctly."""

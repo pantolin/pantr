@@ -13,6 +13,11 @@ from pantr.tolerance import (
     get_tolerance_info,
 )
 
+DEFAULT_TOL_F64: float = 1e-12
+STRICT_TOL_F64: float = 1e-15
+CONSERVATIVE_TOL_F64: float = 1e-10
+DEFAULT_TOL_F32: float = 1e-6
+
 
 class TestTolerance:
     """Test suite for tolerance utilities."""
@@ -88,9 +93,9 @@ class TestTolerance:
 
         assert info["dtype"] == dtype
         assert info["machine_epsilon"] == np.finfo(dtype).eps
-        assert info["default_tolerance"] == 1e-12
-        assert info["strict_tolerance"] == 1e-15
-        assert info["conservative_tolerance"] == 1e-10
+        assert info["default_tolerance"] == DEFAULT_TOL_F64
+        assert info["strict_tolerance"] == STRICT_TOL_F64
+        assert info["conservative_tolerance"] == CONSERVATIVE_TOL_F64
         assert info["precision_bits"] == np.finfo(dtype).precision
         assert info["precision_decimals"] == np.finfo(dtype).precision
         assert info["resolution"] == np.finfo(dtype).resolution
@@ -105,7 +110,7 @@ class TestTolerance:
 
         assert info["dtype"] == dtype_str
         assert info["machine_epsilon"] == finfo.eps
-        assert info["default_tolerance"] == 1e-6
+        assert info["default_tolerance"] == DEFAULT_TOL_F32
 
     def test_tolerance_info_keys(self) -> None:
         """Test that get_tolerance_info returns all expected keys."""
