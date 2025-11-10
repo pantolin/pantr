@@ -421,4 +421,23 @@ def _eval_Lagrange_basis_1D_impl(
         # SciPy may upcast internally; ensure we preserve input dtype.
         B[:, j] = np.asarray(interpolator(t), dtype=t.dtype)
 
+    # Snap to exact Kronecker-delta at interpolation nodes to avoid tiny roundoff
+    # off-diagonals (notably with float32 and Chebyshev nodes).
+    if B.dtype == np.float32:
+        eps = np.finfo(np.float32).eps * 16.0
+    else:
+        eps = np.finfo(np.float64).eps * 16.0
+    diffs = np.abs(t[:, None] - nodes_sorted[None, :])
+    matches = diffs <= eps
+    if np.any(matches):
+        row_has_match = np.any(matches, axis=1)
+        if np.any(row_has_match):
+            matched_k = np.argmax(matches, axis=1)
+            rows = np.nonzero(row_has_match)[0]
+            ks = matched_k[rows]
+            cols = perm[ks]
+            # Zero full matched rows then set the diagonal 1
+            B[rows, :] = 0.0
+            B[rows, cols] = 1.0
+
     return _normalize_basis_output_1D(B, input_shape)
