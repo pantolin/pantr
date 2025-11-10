@@ -1,6 +1,6 @@
 # PaNTr
 
-Polynomial And NURBS Toolkit (**PaNTr**) is a pure Python 3.12 library for geometric modeling and numerical analysis using **NumPy**, **SciPy**, **Matplotlib**, and **Numba**.
+Polynomial and NURBS Toolkit (**PaNTr**) is a pure Python 3.12 library for geometric modeling and numerical analysis using **NumPy**, **SciPy**, **Matplotlib**, and **Numba**.
 
 ## Features
 
