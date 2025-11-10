@@ -159,8 +159,9 @@ jobs:
       - name: Upload coverage xml
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-xml
+          name: coverage-xml-py${{ matrix.python-version }}-run${{ github.run_attempt }}
           path: coverage.xml
+          if-no-files-found: error
 
   docs:
     name: Build documentation
