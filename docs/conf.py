@@ -3,28 +3,31 @@ Initializes metadata, extensions, and build parameters."""
 
 from __future__ import annotations
 
+import importlib.util
+import warnings
+import sys
 from datetime import date
 from pathlib import Path
 from typing import Final
 
-import sys
-from sphinx.util import logging
-
 PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 SRC_PATH: Final[Path] = PROJECT_ROOT / "src"
-DOXYGEN_XML_DIR: Final[Path] = PROJECT_ROOT / "build" / "doxygen" / "xml"
-LOGGER = logging.getLogger(__name__)
 
 sys.path.insert(0, str(SRC_PATH))
 
-import pantr
+pantr_spec = importlib.util.spec_from_file_location(
+    "pantr", SRC_PATH / "pantr" / "__init__.py"
+)
+if pantr_spec is None or pantr_spec.loader is None:
+    msg = f"Unable to locate pantr package at {SRC_PATH / 'pantr' / '__init__.py'}"
+    raise ImportError(msg)
+pantr = importlib.util.module_from_spec(pantr_spec)
+pantr_spec.loader.exec_module(pantr)
 CURRENT_YEAR: Final[int] = date.today().year
 
 project = "PaNTr"
 author = "Pablo Antolin"
-copyright = (
-    f"{CURRENT_YEAR}, Pablo Antolin"
-)  # pylint: disable=redefined-builtin
+copyright = f"{CURRENT_YEAR}, Pablo Antolin"  # pylint: disable=redefined-builtin
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -34,10 +37,17 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.intersphinx",
     "myst_parser",
-    "breathe",
     "jupytext.sphinx",
     "sphinx_rtd_dark_mode",
 ]
+
+JUPYTEXT_EXTENSION: Final[str] = "jupytext.sphinx"
+if importlib.util.find_spec(JUPYTEXT_EXTENSION) is None:
+    warnings.warn(
+        f"Skipping optional Sphinx extension {JUPYTEXT_EXTENSION!r}: module not found.",
+        stacklevel=1,
+    )
+    extensions = [ext for ext in extensions if ext != JUPYTEXT_EXTENSION]
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", {}),
@@ -73,13 +83,6 @@ myst_enable_extensions = [
     "smartquotes",
 ]
 
-breathe_projects: dict[str, str] = {}
-if DOXYGEN_XML_DIR.exists():
-    breathe_projects["pantr"] = str(DOXYGEN_XML_DIR)
-else:
-    LOGGER.warning("Doxygen XML directory %s not found; skipping C++ API import.", DOXYGEN_XML_DIR)
-breathe_default_project = "pantr"
-
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 html_show_sourcelink = True
@@ -108,4 +111,3 @@ version = pantr.__version__
 release = pantr.__version__
 
 nitpicky = True
-
