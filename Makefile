@@ -48,7 +48,7 @@ type-check:
 
 # Build documentation
 docs:
-	$(MAKE) -C docs html
+	$(MAKE) -C docs html SPHINXOPTS="$(SPHINXOPTS)"
 
 # Aggregate target to run all checks before pushing
 before_push: ruff-lint ruff-format ruff-format-check type-check test coverage docs

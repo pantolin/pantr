@@ -26,16 +26,16 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Ruff lint
-        run: ruff check .
+        run: make ruff-lint
 
       - name: Ruff formatting check
-        run: ruff format --check .
+        run: make ruff-format-check
 
       - name: Type check
-        run: mypy --config-file mypy.ini src tests
+        run: make type-check
 
       - name: Run pytest with coverage
-        run: pytest
+        run: make coverage
 
       - name: Upload coverage xml
         uses: actions/upload-artifact@v4
@@ -62,6 +62,5 @@ jobs:
           pip install -e ".[docs]"
 
       - name: Build docs
-        working-directory: docs
-        run: make html SPHINXOPTS="-W --keep-going"
+        run: make docs SPHINXOPTS="-W --keep-going"
 
