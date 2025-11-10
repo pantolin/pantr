@@ -313,6 +313,10 @@ def _get_lagrange_points(
     # Compare using string value to avoid runtime dependency on the Enum symbol
     variant_value = getattr(variant, "value", variant)
 
+    # Degree-zero safeguard: any single node in [0, 1] is valid; choose the midpoint.
+    if n_pts == 1:
+        return np.array([0.5], dtype=target_dtype)
+
     if variant_value == "equispaces":
         return np.linspace(0, 1, n_pts, dtype=target_dtype)
 
@@ -389,17 +393,30 @@ def _eval_Lagrange_basis_1D_impl(
 
     t = _normalize_points_1D(t)
 
+    # Degree-zero: basis is constant 1 for all evaluation points and variants.
+    if n == 0:
+        ones = np.ones((t.shape[0], 1), dtype=t.dtype)
+        return _normalize_basis_output_1D(ones, input_shape)
+
     nodes = _get_lagrange_points(variant, n + 1, t.dtype)
 
     num_eval = t.shape[0]
     n_pts = nodes.shape[0]  # equals n + 1
     B = np.zeros((num_eval, n_pts), dtype=t.dtype)
 
-    for j in range(n_pts):
-        y = np.zeros(n_pts, dtype=t.dtype)
-        y[j] = 1.0
+    # Ensure nodes are strictly increasing for numerical robustness and consistency
+    perm = np.argsort(nodes)
+    nodes_sorted = nodes[perm]
+    # Precompute inverse permutation: inv_perm[idx_in_sorted] = original_index
+    inv_perm = np.empty_like(perm)
+    inv_perm[perm] = np.arange(n_pts, dtype=perm.dtype)
 
-        interpolator = BarycentricInterpolator(nodes, y)
+    for j in range(n_pts):
+        # Set 1 at the position corresponding to node j in the sorted order
+        y_sorted = np.zeros(n_pts, dtype=t.dtype)
+        y_sorted[inv_perm[j]] = 1.0
+
+        interpolator = BarycentricInterpolator(nodes_sorted, y_sorted)
 
         # SciPy may upcast internally; ensure we preserve input dtype.
         B[:, j] = np.asarray(interpolator(t), dtype=t.dtype)
