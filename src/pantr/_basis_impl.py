@@ -1,13 +1,15 @@
-from numbers import Integral
+from typing import Any, cast
 
-import numba as nb
+import numba as nb  # type: ignore[import-untyped]
 import numpy as np
 import numpy.typing as npt
 
 from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
 
+nb_jit = cast(Any, nb.jit)
 
-@nb.jit(
+
+@nb_jit(
     [
         nb.float32[:, :](nb.int32, nb.float32[:]),
         nb.float64[:, :](nb.int32, nb.float64[:]),
@@ -17,7 +19,7 @@ from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
     parallel=False,
 )
 def _eval_Bernstein_basis_1D_core(
-    n: np.int32, t: npt.ArrayLike
+    n: np.int32, t: npt.NDArray[np.float32] | npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate Bernstein basis polynomials of degree n at points t.
 
@@ -79,13 +81,11 @@ def _eval_Bernstein_basis_1D_core(
     return B
 
 
-def _eval_Bernstein_basis_1D_impl(
-    n: Integral, t: npt.ArrayLike
-) -> npt.NDArray[np.float32 | np.float64]:
+def _eval_Bernstein_basis_1D_impl(n: int, t: npt.ArrayLike) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the Bernstein basis polynomials of the given degree at the given points.
 
     Args:
-        n (Integral): Degree of the Bernstein polynomials. Must be non-negative.
+        n (int): Degree of the Bernstein polynomials. Must be non-negative.
         t (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
             Types different from float32 or float64 are automatically converted to float64.
 

@@ -1,10 +1,4 @@
-"""Basis function evaluation for various polynomial bases.
-
-This module provides functions to evaluate different types of basis functions
-including Bernstein, cardinal B-spline, and Lagrange.
-"""
-
-from numbers import Integral
+"""Basis function evaluation for various polynomial bases."""
 
 import numpy as np
 import numpy.typing as npt
@@ -13,12 +7,12 @@ from ._basis_impl import _eval_Bernstein_basis_1D_impl
 
 
 def eval_Bernstein_basis_1D(
-    degree: Integral, pts: npt.ArrayLike
+    degree: int, pts: npt.ArrayLike
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the Bernstein basis polynomials of the given degree at the given points.
 
     Args:
-        degree (Integral): Degree of the Bernstein polynomials. Must be non-negative.
+        degree (int): Degree of the Bernstein polynomials. Must be non-negative.
         pts (npt.ArrayLike): Evaluation points. Can be a scalar, list, or
             numpy array. Types different from float32 or float64 are
             automatically converted to float64.

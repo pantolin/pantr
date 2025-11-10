@@ -1,27 +1,35 @@
 """Tolerance utilities for floating-point comparisons in IGA applications."""
 
 from functools import cache
-from typing import NamedTuple, TypedDict
+from typing import Any, NamedTuple, TypedDict, cast
 
 import numpy as np
 from numpy import typing as npt
 
 
 @cache
-def _check_dtype(dtype: npt.DTypeLike) -> None:
-    """Ensure the dtype is a supported NumPy floating-point dtype.
+def _ensure_float_dtype_by_name(name: str) -> np.dtype[np.floating[Any]]:
+    """Cached validator returning a floating dtype from its canonical name.
 
     Args:
-        dtype (npt.DTypeLike): Input dtype. Can be a NumPy dtype, a
-            floating-point type, or a string representation (e.g., "float64").
+        name (str): Canonical NumPy dtype name (e.g., "float64").
+
+    Returns:
+        np.dtype[np.floating[Any]]: Validated floating-point dtype.
 
     Raises:
-        ValueError: If dtype is not one of float16, float32, float64, or
-            longdouble.
+        ValueError: If dtype is not a supported floating-point type.
     """
-    dtype_obj = np.dtype(dtype)
+    dtype_obj = np.dtype(name)
     if dtype_obj.type not in (np.float16, np.float32, np.float64, np.longdouble):
-        raise ValueError(f"Unsupported dtype: {dtype}")
+        raise ValueError(f"Unsupported dtype: {name}")
+    return cast(np.dtype[np.floating[Any]], dtype_obj)
+
+
+def _ensure_float_dtype(dtype: npt.DTypeLike) -> np.dtype[np.floating[Any]]:
+    """Normalize and validate a dtype-like into a floating dtype."""
+    dtype_obj = np.dtype(dtype)
+    return _ensure_float_dtype_by_name(dtype_obj.name)
 
 
 class _TolerancePreset(NamedTuple):
@@ -56,8 +64,7 @@ def _get_tolerance(
     Raises:
         ValueError: If dtype is not a supported floating-point type.
     """
-    _check_dtype(dtype)
-    dtype_obj = np.dtype(dtype)
+    dtype_obj = _ensure_float_dtype(dtype)
 
     if dtype_obj.type == np.float16:
         return preset.float16
@@ -139,9 +146,9 @@ def get_machine_epsilon(dtype: npt.DTypeLike) -> float:
     Raises:
         ValueError: If dtype is not a supported floating-point type.
     """
-    _check_dtype(dtype)
+    _ensure_float_dtype(dtype)
 
-    return float(np.finfo(dtype).eps)
+    return float(np.finfo(_ensure_float_dtype(dtype)).eps)
 
 
 class ToleranceInfo(TypedDict):
@@ -175,15 +182,15 @@ def get_tolerance_info(
     Raises:
         ValueError: If dtype is not a supported floating-point type.
     """
-    _check_dtype(dtype)
-    finfo = np.finfo(dtype)
+    dt = _ensure_float_dtype(dtype)
+    finfo = np.finfo(dt)
 
     return {
-        "dtype": dtype,
-        "machine_epsilon": get_machine_epsilon(dtype),
-        "default_tolerance": get_default_tolerance(dtype),
-        "strict_tolerance": get_strict_tolerance(dtype),
-        "conservative_tolerance": get_conservative_tolerance(dtype),
+        "dtype": dtype,  # preserve original representation
+        "machine_epsilon": get_machine_epsilon(dt),
+        "default_tolerance": get_default_tolerance(dt),
+        "strict_tolerance": get_strict_tolerance(dt),
+        "conservative_tolerance": get_conservative_tolerance(dt),
         "precision_bits": finfo.precision,
         "precision_decimals": finfo.precision,
         "resolution": float(finfo.resolution),

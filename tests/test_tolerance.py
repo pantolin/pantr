@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pytest
 
@@ -32,7 +34,7 @@ class TestTolerance:
         ],
     )
     def test_get_default_tolerance(
-        self, dtype: np.dtype | type[np.floating], expected: float
+        self, dtype: np.dtype[np.floating[Any]] | type[np.floating[Any]], expected: float
     ) -> None:
         """Test get_default_tolerance with various dtypes."""
         assert get_default_tolerance(dtype) == expected
@@ -47,7 +49,7 @@ class TestTolerance:
         ],
     )
     def test_get_strict_tolerance(
-        self, dtype: np.dtype | type[np.floating], expected: float
+        self, dtype: np.dtype[np.floating[Any]] | type[np.floating[Any]], expected: float
     ) -> None:
         """Test get_strict_tolerance with various dtypes."""
         assert get_strict_tolerance(dtype) == expected
@@ -62,7 +64,7 @@ class TestTolerance:
         ],
     )
     def test_get_conservative_tolerance(
-        self, dtype: np.dtype | type[np.floating], expected: float
+        self, dtype: np.dtype[np.floating[Any]] | type[np.floating[Any]], expected: float
     ) -> None:
         """Test get_conservative_tolerance with various dtypes."""
         assert get_conservative_tolerance(dtype) == expected
@@ -71,7 +73,9 @@ class TestTolerance:
         "dtype",
         [np.float16, np.float32, "float64", np.longdouble],
     )
-    def test_get_machine_epsilon(self, dtype: np.dtype | type[np.floating]) -> None:
+    def test_get_machine_epsilon(
+        self, dtype: np.dtype[np.floating[Any]] | type[np.floating[Any]]
+    ) -> None:
         """Test get_machine_epsilon against np.finfo."""
         assert get_machine_epsilon(dtype) == np.finfo(dtype).eps
 
