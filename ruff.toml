@@ -19,7 +19,7 @@ select = [
   "RUF",
   "SIM",
 ]
-ignore = ["ANN101", "ANN102", "D104"]
+ignore = ["D104"]
 
 [lint.pydocstyle]
 convention = "google"
