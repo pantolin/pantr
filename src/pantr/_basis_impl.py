@@ -142,5 +142,4 @@ def _eval_Bernstein_basis_1D_impl(n: int, t: npt.ArrayLike) -> npt.NDArray[np.fl
     else:
         B = _eval_Bernstein_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
 
-    # 5. Return
     return _normalize_basis_output_1D(B, input_shape)
