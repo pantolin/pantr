@@ -66,6 +66,14 @@ def _get_tolerance(
     """
     dtype_obj = _ensure_float_dtype(dtype)
 
+    # Respect an explicit request for np.longdouble even on platforms where it
+    # aliases float64 (e.g., macOS, Windows). The tests expect semantic intent,
+    # not platform aliasing.
+    if dtype is np.longdouble or (
+        isinstance(dtype, str) and dtype.lower().replace(" ", "") == "longdouble"
+    ):
+        return preset.longdouble
+
     if dtype_obj.type == np.float16:
         return preset.float16
     elif dtype_obj.type == np.float32:
