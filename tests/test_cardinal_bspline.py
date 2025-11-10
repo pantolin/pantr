@@ -8,8 +8,7 @@ import numpy.typing as npt
 import pytest
 
 from pantr.basis import evaluate_cardinal_Bspline_basis_1D
-
-NEGATIVE_TOL: float = 1e-12
+from pantr.tolerance import get_default_tolerance
 
 
 class TestCardinalBspline:
@@ -26,7 +25,7 @@ class TestCardinalBspline:
             ],
             dtype=dtype,
         )
-        rtol = 1e-6 if dtype == np.float32 else 1e-12
+        rtol = get_default_tolerance(dtype)
         nptest.assert_allclose(res, exp, rtol=rtol, atol=0.0)
 
     @pytest.mark.parametrize("degree", [0, 1, 2, 3, 6])
@@ -35,16 +34,25 @@ class TestCardinalBspline:
         pts = np.linspace(0.0, 1.0, 21, dtype=dtype)
         res = evaluate_cardinal_Bspline_basis_1D(degree, pts)
         sums = np.sum(res, axis=-1)
-        rtol = 1e-6 if dtype == np.float32 else 1e-12
+        rtol = get_default_tolerance(dtype)
         nptest.assert_allclose(sums, 1.0, rtol=rtol, atol=0.0)
 
     def test_nonnegativity(self) -> None:
         pts = np.linspace(0.0, 1.0, 51)
         res = evaluate_cardinal_Bspline_basis_1D(5, pts)
-        assert np.all(res >= -NEGATIVE_TOL)
+        assert np.all(res >= -get_default_tolerance(res.dtype))
 
     def test_outside_span_is_zero(self) -> None:
-        pts = np.array([-0.5, -1e-8, 1.0 + 1e-8, 2.0], dtype=np.float64)
+        tol = get_default_tolerance(np.float64)
+        pts = np.array(
+            [
+                -0.5,
+                -tol,
+                1.0 + tol,
+                2.0,
+            ],
+            dtype=np.float64,
+        )
         res = evaluate_cardinal_Bspline_basis_1D(3, pts)
         nptest.assert_allclose(res[[0, 2, 3]], 0.0)
 
