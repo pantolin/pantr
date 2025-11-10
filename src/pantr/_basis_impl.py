@@ -1,4 +1,4 @@
-"""Numba-backed core implementations for 1D Bernstein basis evaluation."""
+"""Numba-backed core implementations for 1D Bernstein and cardinal B-spline bases."""
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypeVar, cast
@@ -141,5 +141,139 @@ def _eval_Bernstein_basis_1D_impl(n: int, t: npt.ArrayLike) -> npt.NDArray[np.fl
         B = _eval_Bernstein_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
     else:
         B = _eval_Bernstein_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
+
+    return _normalize_basis_output_1D(B, input_shape)
+
+
+@nb_jit(
+    [
+        nb.float32[:, :](nb.int32, nb.float32[:]),
+        nb.float64[:, :](nb.int32, nb.float64[:]),
+    ],
+    nopython=True,
+    cache=True,
+    parallel=False,
+)
+def _eval_cardinal_Bspline_basis_1D_core(
+    n: np.int32, t: npt.NDArray[np.float32] | npt.NDArray[np.float64]
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Evaluate the central cardinal B-spline basis of degree n on [0, 1].
+
+    Computes the (n+1) nonzero B-spline basis functions active over the central
+    unit span [0, 1] of a uniform knot vector with unit spacing, at each
+    evaluation point in t. Values are zero outside [0, 1]. Uses the stable
+    Cox-de Boor (BasisFuns) recursion specialized to span index i=0.
+
+    Args:
+        n: Degree of the B-spline basis (>= 0).
+        t: 1D array of evaluation points (float32 or float64).
+
+    Returns:
+        2D array of shape (len(t), n+1) with evaluated basis values.
+    """
+    num_pts = t.shape[0]
+    out: npt.NDArray[np.float32 | np.float64] = np.zeros((num_pts, n + 1), dtype=t.dtype)
+
+    if n == 0:
+        # Degree-0: characteristic function of [0, 1] (include both endpoints).
+        for j in range(num_pts):
+            u = t[j]
+            if 0.0 <= u <= 1.0:
+                out[j, 0] = 1.0
+        return out
+
+    # Temporary arrays reused per point
+    left = np.empty(n + 1, dtype=t.dtype)
+    right = np.empty(n + 1, dtype=t.dtype)
+    N = np.empty(n + 1, dtype=t.dtype)
+
+    for j in range(num_pts):
+        u = t[j]
+        if not (0.0 <= u <= 1.0):
+            # Outside the central span: remains zeros
+            continue
+
+        # BasisFuns for uniform knots U_k = k, degree n, span index i = 0.
+        N[0] = 1.0
+        for k in range(1, n + 1):
+            # For i = 0 and uniform unit knots:
+            # left[k]  = u - U[i+1-k] = u - (1 - k) = u + k - 1
+            # right[k] = U[i+k] - u   = k - u
+            left[k] = u + (k - 1.0)
+            right[k] = (k - 0.0) - u
+
+            saved = 0.0
+            for r in range(k):
+                denom = right[r + 1] + left[k - r]
+                temp = 0.0
+                if denom != 0.0:
+                    temp = N[r] / denom
+                N[r] = saved + right[r + 1] * temp
+                saved = left[k - r] * temp
+            N[k] = saved
+
+        # N[0..n] directly correspond to i = 0..n on the central span
+        for i in range(n + 1):
+            out[j, i] = N[i]
+
+    return out
+
+
+def _eval_cardinal_Bspline_basis_1D_impl(
+    n: int, t: npt.ArrayLike
+) -> npt.NDArray[np.float32 | np.float64]:
+    r"""Evaluate the cardinal B-spline basis polynomials of given degree at given points.
+
+    The cardinal B-spline basis is the set of B-spline basis functions defined
+    on an interval of maximum continuity that has degree-1 contiguous
+    knot spans on each side with the same length as the interval itself.
+    These basis functions appear in the central knot spans
+    in the case of maximum regularity uniform knot vectors.
+
+    Explicit expression:
+    \[
+    B_{n,i}(t) = (1/n!) * sum_{j=0}^{n-i} binom(n+1, j) * (-1)^j * (t + n - i - j)^n
+    \]
+    where \( B_{n,i}(t) \) is the B-spline basis function of degree \( n \) and index \( i \)
+     at point \( t \), and \( binom(a, b) \) is the binomial coefficient.
+
+    Args:
+        n (int): Degree of the B-spline basis. Must be non-negative.
+        t (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
+            Types different from float32 or float64 are automatically converted to float64.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape
+        as the input points and the last dimension equal to (degree + 1).
+
+    Raises:
+        ValueError: If provided degree is negative.
+
+    Example:
+        >>> evaluate_cardinal_Bspline_basis(2, [0.0, 0.5, 1.0])
+        array([[0.5    , 0.5    , 0.     ],
+               [0.125  , 0.75   , 0.125  ],
+               [0.03125, 0.6875 , 0.28125],
+               [0.     , 0.5    , 0.5    ]])
+
+    """
+    if n < 0:
+        raise ValueError("degree must be non-negative")
+
+    # Get input shape before normalization (handle scalars and lists)
+    if isinstance(t, np.ndarray):
+        input_shape = t.shape
+    elif isinstance(t, list | tuple):
+        input_shape = np.array(t).shape
+    else:  # scalar
+        input_shape = ()
+
+    t = _normalize_points_1D(t)
+
+    # Narrow union dtype for mypy by branching on dtype and casting accordingly.
+    if t.dtype == np.float32:
+        B = _eval_cardinal_Bspline_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
+    else:
+        B = _eval_cardinal_Bspline_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
 
     return _normalize_basis_output_1D(B, input_shape)

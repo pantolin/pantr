@@ -3,7 +3,7 @@
 import numpy as np
 import numpy.typing as npt
 
-from ._basis_impl import _eval_Bernstein_basis_1D_impl
+from ._basis_impl import _eval_Bernstein_basis_1D_impl, _eval_cardinal_Bspline_basis_1D_impl
 
 
 def eval_Bernstein_basis_1D(
@@ -32,3 +32,44 @@ def eval_Bernstein_basis_1D(
                [0.    , 0.    , 1.    ]])
     """
     return _eval_Bernstein_basis_1D_impl(degree, pts)
+
+
+def evaluate_cardinal_Bspline_basis_1D(
+    degree: int, pts: npt.ArrayLike
+) -> npt.NDArray[np.float32 | np.float64]:
+    r"""Evaluate the cardinal B-spline basis polynomials of given degree at given points.
+
+    The cardinal B-spline basis is the set of B-spline basis functions defined
+    on an interval of maximum continuity that has degree-1 contiguous
+    knot spans on each side with the same length as the interval itself.
+    These basis functions appear in the central knot spans
+    in the case of maximum regularity uniform knot vectors.
+
+    Explicit expression:
+    \[
+    B_{n,i}(t) = (1/n!) * sum_{j=0}^{n-i} binom(n+1, j) * (-1)^j * (t + n - i - j)^n
+    \]
+    where \( B_{n,i}(t) \) is the B-spline basis function of degree \( n \) and index \( i \)
+     at point \( t \), and \( binom(a, b) \) is the binomial coefficient.
+
+    Args:
+        degree (int): Degree of the B-spline basis. Must be non-negative.
+        pts (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
+            Types different from float32 or float64 are automatically converted to float64.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape
+        as the input points and the last dimension equal to (degree + 1).
+
+    Raises:
+        ValueError: If provided degree is negative.
+
+    Example:
+        >>> evaluate_cardinal_Bspline_basis(2, [0.0, 0.5, 1.0])
+        array([[0.5    , 0.5    , 0.     ],
+               [0.125  , 0.75   , 0.125  ],
+               [0.03125, 0.6875 , 0.28125],
+               [0.     , 0.5    , 0.5    ]])
+
+    """
+    return _eval_cardinal_Bspline_basis_1D_impl(degree, pts)
