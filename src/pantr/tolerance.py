@@ -1,13 +1,13 @@
 """Tolerance utilities for floating-point comparisons in IGA applications."""
 
-from functools import lru_cache
+from functools import cache
 from typing import NamedTuple, TypedDict
 
 import numpy as np
 from numpy import typing as npt
 
 
-@lru_cache(maxsize=None)
+@cache
 def _check_dtype(dtype: npt.DTypeLike) -> None:
     """Ensure the dtype is a supported NumPy floating-point dtype.
 
