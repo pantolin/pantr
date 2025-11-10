@@ -1,8 +1,7 @@
-[tool.ruff]
 target-version = "py312"
 line-length = 100
 
-[tool.ruff.lint]
+[lint]
 select = [
   "E",
   "F",
@@ -20,16 +19,11 @@ select = [
   "RUF",
   "SIM",
 ]
-ignore = [
-  "ANN101",
-  "ANN102",
-  "D104",
-]
+ignore = ["ANN101", "ANN102", "D104"]
 
-[tool.ruff.lint.pydocstyle]
+[lint.pydocstyle]
 convention = "google"
 
-[tool.ruff.lint.per-file-ignores]
+[lint.per-file-ignores]
 "tests/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "D105", "ANN401"]
 "docs/**/*.py" = ["D100", "D101", "D102", "D103", "D104", "D105"]
-
