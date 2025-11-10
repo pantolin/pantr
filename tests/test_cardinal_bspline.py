@@ -53,3 +53,37 @@ class TestCardinalBspline:
         pts64 = np.array([0.0, 0.25, 0.5], dtype=np.float64)
         assert evaluate_cardinal_Bspline_basis_1D(3, pts32).dtype == np.float32
         assert evaluate_cardinal_Bspline_basis_1D(3, pts64).dtype == np.float64
+
+    def test_2d_ndarray_shape_preservation(self) -> None:
+        degree = 2
+        pts = np.array([[0.0, 0.5], [0.25, 0.75]], dtype=np.float64)
+        res = evaluate_cardinal_Bspline_basis_1D(degree, pts)
+        # Original shape + basis dimension
+        assert res.shape == (2, 2, degree + 1)
+        sums = np.sum(res, axis=-1)
+        np.testing.assert_allclose(sums, 1.0)
+
+    def test_list_input(self) -> None:
+        degree = 3
+        pts = [[0.0, 0.25], [0.5, 0.75]]
+        res = evaluate_cardinal_Bspline_basis_1D(degree, pts)
+        assert res.shape == (2, 2, degree + 1)
+        sums = np.sum(res, axis=-1)
+        np.testing.assert_allclose(sums, 1.0)
+
+    def test_tuple_input(self) -> None:
+        degree = 2
+        pts = (0.0, 0.5, 1.0)
+        res = evaluate_cardinal_Bspline_basis_1D(degree, pts)
+        assert res.shape == (3, degree + 1)
+        sums = np.sum(res, axis=-1)
+        np.testing.assert_allclose(sums, 1.0)
+
+    def test_scalar_input(self) -> None:
+        # Degree-0 should be 1 on [0, 1]
+        res = evaluate_cardinal_Bspline_basis_1D(0, 0.5)
+        np.testing.assert_allclose(res, np.array([1.0]))
+
+    def test_negative_degree_raises(self) -> None:
+        with pytest.raises(ValueError, match="degree must be non-negative"):
+            evaluate_cardinal_Bspline_basis_1D(-1, [0.0, 0.5])

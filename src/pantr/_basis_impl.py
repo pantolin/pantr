@@ -237,6 +237,9 @@ def _eval_cardinal_Bspline_basis_1D_impl(
     where \( B_{n,i}(t) \) is the B-spline basis function of degree \( n \) and index \( i \)
      at point \( t \), and \( binom(a, b) \) is the binomial coefficient.
 
+    Its actual implementation is based on the Cox-de Boor recursion formula for the
+    central cardinal B-spline basis.
+
     Args:
         n (int): Degree of the B-spline basis. Must be non-negative.
         t (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
