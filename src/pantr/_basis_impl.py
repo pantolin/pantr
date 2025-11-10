@@ -1,17 +1,23 @@
 """Numba-backed core implementations for 1D Bernstein and cardinal B-spline bases."""
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import numba as nb  # type: ignore[import-untyped]
 import numpy as np
 import numpy.typing as npt
+from numpy.polynomial import chebyshev, legendre
+from scipy.interpolate import BarycentricInterpolator
 
 from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
 
 F = TypeVar("F", bound=Callable[..., Any])
 
 if TYPE_CHECKING:
+    from .basis import LagrangeVariant
+
     # During type-checking, make the decorator a no-op that preserves types.
     def nb_jit(*args: object, **kwargs: object) -> Callable[[F], F]:
         def decorator(func: F) -> F:
@@ -278,5 +284,160 @@ def _eval_cardinal_Bspline_basis_1D_impl(
         B = _eval_cardinal_Bspline_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
     else:
         B = _eval_cardinal_Bspline_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
+
+    return _normalize_basis_output_1D(B, input_shape)
+
+
+def _get_lagrange_points(
+    variant: LagrangeVariant, n_pts: int, dtype: npt.DTypeLike = np.float64
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Get nodes for a Lagrange basis on [0, 1] for the given variant and size.
+
+    Args:
+        variant (LagrangeVariant): The variant of the Lagrange basis.
+        n_pts (int): The number of points.
+        dtype (npt.DTypeLike): The dtype of the nodes. If must be float32 or float64.
+            Defaults to float64.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: The nodes.
+
+    Raises:
+        ValueError: If dtype is not float32 or float64.
+    """
+    dtype_obj = np.dtype(dtype)
+    if dtype_obj.type not in (np.float32, np.float64):
+        raise ValueError("dtype must be float32 or float64")
+    target_dtype = np.float32 if dtype_obj.type == np.float32 else np.float64
+
+    # Compare using string value to avoid runtime dependency on the Enum symbol
+    variant_value = getattr(variant, "value", variant)
+
+    # Degree-zero safeguard: any single node in [0, 1] is valid; choose the midpoint.
+    if n_pts == 1:
+        return np.array([0.5], dtype=target_dtype)
+
+    if variant_value == "equispaces":
+        return np.linspace(0, 1, n_pts, dtype=target_dtype)
+
+    if variant_value == "gauss_legendre":
+        coefs64: npt.NDArray[np.float64] = np.zeros(n_pts + 1, dtype=np.float64)
+        coefs64[-1] = 1.0
+        legroots_t = cast(
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+            legendre.legroots,
+        )
+        nodes = legroots_t(coefs64)
+
+    elif variant_value == "gauss_lobatto_legendre":
+        if n_pts == 2:  # noqa: PLR2004
+            nodes = np.array([-1.0, 1.0], dtype=target_dtype)
+        else:
+            # Get its derivative, P'_(n-1)
+            # The interior nodes are the roots of this derivative
+            basis_t = cast(Callable[[int], Any], legendre.Legendre.basis)
+            P_basis = basis_t(n_pts - 1)
+            P_prime = P_basis.deriv()
+            interior_nodes = cast(npt.NDArray[np.float64], P_prime.roots())
+
+            nodes = np.concatenate((np.array([-1.0]), interior_nodes, np.array([1.0])))
+
+    elif variant_value == "chebyshev_1st":
+        cheb1_t = cast(Callable[[int], npt.NDArray[np.float64]], chebyshev.chebpts1)
+        nodes = cheb1_t(n_pts)
+
+    else:  # "chebyshev_2nd"
+        cheb2_t = cast(Callable[[int], npt.NDArray[np.float64]], chebyshev.chebpts2)
+        nodes = cheb2_t(n_pts)
+
+    return ((nodes + 1.0) * 0.5).astype(target_dtype)
+
+
+def _eval_Lagrange_basis_1D_impl(
+    n: int, variant: LagrangeVariant, t: npt.ArrayLike
+) -> npt.NDArray[np.float32 | np.float64]:
+    r"""Evaluate Lagrange basis polynomials at points using the specified variant.
+
+    The polynomials are defined in the interval [0, 1] and are given by the formula:
+    \[
+    L_{n,i}(t) = \prod_{j=0}^{n} \frac{t - x_j}{x_i - x_j}
+    \]
+    where \( x_i \) are the points at which the basis is evaluated.
+
+    The variant determines the points at which the basis is evaluated.
+    central cardinal B-spline basis.
+
+    Args:
+        n (int): Degree of the B-spline basis. Must be non-negative.
+        variant (LagrangeVariant): Variant of the Lagrange basis.
+        t (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
+            Types different from float32 or float64 are automatically converted to float64.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape
+        as the input points and the last dimension equal to (degree + 1).
+
+    Raises:
+        ValueError: If provided degree is negative.
+    """
+    if n < 0:
+        raise ValueError("degree must be non-negative")
+
+    # Get input shape before normalization (handle scalars and lists)
+    if isinstance(t, np.ndarray):
+        input_shape = t.shape
+    elif isinstance(t, list | tuple):
+        input_shape = np.array(t).shape
+    else:  # scalar
+        input_shape = ()
+
+    t = _normalize_points_1D(t)
+
+    # Degree-zero: basis is constant 1 for all evaluation points and variants.
+    if n == 0:
+        ones = np.ones((t.shape[0], 1), dtype=t.dtype)
+        return _normalize_basis_output_1D(ones, input_shape)
+
+    nodes = _get_lagrange_points(variant, n + 1, t.dtype)
+
+    num_eval = t.shape[0]
+    n_pts = nodes.shape[0]  # equals n + 1
+    B = np.zeros((num_eval, n_pts), dtype=t.dtype)
+
+    # Ensure nodes are strictly increasing for numerical robustness and consistency
+    perm = np.argsort(nodes)
+    nodes_sorted = nodes[perm]
+    # Precompute inverse permutation: inv_perm[idx_in_sorted] = original_index
+    inv_perm = np.empty_like(perm)
+    inv_perm[perm] = np.arange(n_pts, dtype=perm.dtype)
+
+    for j in range(n_pts):
+        # Set 1 at the position corresponding to node j in the sorted order
+        y_sorted = np.zeros(n_pts, dtype=t.dtype)
+        y_sorted[inv_perm[j]] = 1.0
+
+        interpolator = BarycentricInterpolator(nodes_sorted, y_sorted)
+
+        # SciPy may upcast internally; ensure we preserve input dtype.
+        B[:, j] = np.asarray(interpolator(t), dtype=t.dtype)
+
+    # Snap to exact Kronecker-delta at interpolation nodes to avoid tiny roundoff
+    # off-diagonals (notably with float32 and Chebyshev nodes).
+    if B.dtype == np.float32:
+        eps = np.finfo(np.float32).eps * 16.0
+    else:
+        eps = np.finfo(np.float64).eps * 16.0
+    diffs = np.abs(t[:, None] - nodes_sorted[None, :])
+    matches = diffs <= eps
+    if np.any(matches):
+        row_has_match = np.any(matches, axis=1)
+        if np.any(row_has_match):
+            matched_k = np.argmax(matches, axis=1)
+            rows = np.nonzero(row_has_match)[0]
+            ks = matched_k[rows]
+            cols = perm[ks]
+            # Zero full matched rows then set the diagonal 1
+            B[rows, :] = 0.0
+            B[rows, cols] = 1.0
 
     return _normalize_basis_output_1D(B, input_shape)
