@@ -1,5 +1,7 @@
 """Smoke tests for package metadata.
-Validates public attributes exposed via the package API."""
+
+Validates public attributes exposed via the package API.
+"""
 
 from __future__ import annotations
 
@@ -26,4 +28,3 @@ def test_metadata_import_stability() -> None:
     """Verify metadata survives module reloads."""
     module = importlib.reload(pantr)
     assert module.__version__ == "0.1.0"
-

@@ -1,3 +1,4 @@
 """Test suite for PaNTr.
-Exposes pytest fixtures and utilities."""
 
+Exposes pytest fixtures and utilities.
+"""
