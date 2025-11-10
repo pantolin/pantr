@@ -16,8 +16,9 @@ import pytest
 from scipy.interpolate import BPoly
 
 from pantr.basis import eval_Bernstein_basis_1D
+from pantr.tolerance import get_conservative_tolerance, get_default_tolerance
 
-NEGATIVE_TOL: float = 1e-10
+NEGATIVE_TOL: float = get_conservative_tolerance(np.float64)
 
 
 def _eval_with_scipy_bpoly(
@@ -127,7 +128,7 @@ class TestEvalBernsteinBasis1D:
         result = eval_Bernstein_basis_1D(degree, pts)
         # Sum over the last dimension should be 1 for each point
         sums = np.sum(result, axis=-1)
-        nptest.assert_allclose(sums, 1.0, rtol=1e-10)
+        nptest.assert_allclose(sums, 1.0, rtol=get_conservative_tolerance(np.float64))
 
     @pytest.mark.parametrize("degree", [0, 1, 2, 3, 5, 10])
     @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -153,7 +154,7 @@ class TestEvalBernsteinBasis1D:
         pantr_vals = eval_Bernstein_basis_1D(degree, pts)
         bpoly_vals = _eval_with_scipy_bpoly(degree, pts, dtype)
 
-        rtol = 1e-6 if dtype == np.float32 else 1e-12
+        rtol = get_default_tolerance(dtype)
         nptest.assert_allclose(pantr_vals, bpoly_vals, rtol=rtol, atol=0.0)
 
     @pytest.mark.parametrize("degree", [2, 4, 8])
@@ -164,7 +165,7 @@ class TestEvalBernsteinBasis1D:
         pantr_vals = eval_Bernstein_basis_1D(degree, pts)
         bpoly_vals = _eval_with_scipy_bpoly(degree, pts, dtype)
 
-        rtol = 1e-6 if dtype == np.float32 else 1e-12
+        rtol = get_default_tolerance(dtype)
         nptest.assert_allclose(pantr_vals, bpoly_vals, rtol=rtol, atol=0.0)
 
     @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -176,7 +177,7 @@ class TestEvalBernsteinBasis1D:
         pantr_vals = eval_Bernstein_basis_1D(degree, pts)
         bpoly_vals = _eval_with_scipy_bpoly(degree, pts, dtype)
 
-        rtol = 5e-6 if dtype == np.float32 else 5e-13
+        rtol = 5.0 * get_default_tolerance(dtype)
         nptest.assert_allclose(pantr_vals, bpoly_vals, rtol=rtol, atol=0.0)
 
     def test_non_negativity(self) -> None:
@@ -219,7 +220,7 @@ class TestEvalBernsteinBasis1D:
         assert result.shape == (3, degree + 1)
         # Check partition of unity
         sums = np.sum(result, axis=-1)
-        nptest.assert_allclose(sums, 1.0, rtol=1e-10)
+        nptest.assert_allclose(sums, 1.0, rtol=get_conservative_tolerance(np.float64))
         # Check boundary conditions
         nptest.assert_allclose(result[0, 0], 1.0)
         nptest.assert_allclose(result[0, 1:], 0.0)
@@ -235,4 +236,4 @@ class TestEvalBernsteinBasis1D:
         assert result.shape == (2, 3)
         # Check partition of unity still holds
         sums = np.sum(result, axis=-1)
-        nptest.assert_allclose(sums, 1.0, rtol=1e-10)
+        nptest.assert_allclose(sums, 1.0, rtol=get_conservative_tolerance(np.float64))

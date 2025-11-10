@@ -1,7 +1,9 @@
 """Tolerance utilities for floating-point comparisons in IGA applications."""
 
+from __future__ import annotations
+
 from functools import cache
-from typing import Any, NamedTuple, TypedDict, cast
+from typing import Any, NamedTuple, TypedDict
 
 import numpy as np
 from numpy import typing as npt
@@ -23,7 +25,7 @@ def _ensure_float_dtype_by_name(name: str) -> np.dtype[np.floating[Any]]:
     dtype_obj = np.dtype(name)
     if dtype_obj.type not in (np.float16, np.float32, np.float64, np.longdouble):
         raise ValueError(f"Unsupported dtype: {name}")
-    return cast(np.dtype[np.floating[Any]], dtype_obj)
+    return dtype_obj
 
 
 def _ensure_float_dtype(dtype: npt.DTypeLike) -> np.dtype[np.floating[Any]]:
@@ -41,11 +43,19 @@ class _TolerancePreset(NamedTuple):
     longdouble: float
 
 
-_TOLERANCE_PRESETS = {
-    "default": _TolerancePreset(1e-3, 1e-6, 1e-12, 1e-15),
-    "strict": _TolerancePreset(1e-4, 1e-7, 1e-15, 1e-18),
-    "conservative": _TolerancePreset(1e-2, 1e-5, 1e-10, 1e-12),
-}
+# This is platform dependent.
+if np.dtype(np.longdouble) == np.dtype(np.float64):
+    _TOLERANCE_PRESETS = {
+        "default": _TolerancePreset(1e-3, 1e-6, 1e-12, 1e-12),
+        "strict": _TolerancePreset(1e-4, 1e-7, 1e-15, 1e-15),
+        "conservative": _TolerancePreset(1e-2, 1e-5, 1e-10, 1e-10),
+    }
+else:
+    _TOLERANCE_PRESETS = {
+        "default": _TolerancePreset(1e-3, 1e-6, 1e-12, 1e-15),
+        "strict": _TolerancePreset(1e-4, 1e-7, 1e-15, 1e-18),
+        "conservative": _TolerancePreset(1e-2, 1e-5, 1e-10, 1e-12),
+    }
 
 
 def _get_tolerance(
