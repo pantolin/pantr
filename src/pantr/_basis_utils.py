@@ -8,7 +8,8 @@ def _normalize_points_1D(pts: npt.ArrayLike) -> npt.NDArray[np.float32 | np.floa
     """Normalize points to a 1D float array for basis function evaluation.
 
     Converts input points (scalar, list, or numpy array) to a 1D numpy array
-    with floating point dtype. Types different from float32 or float64 are automatically converted to float64.
+    with floating point dtype. Types different from float32 or float64 are
+    automatically converted to float64.
     Zero-dimensional arrays (scalars) are converted to 1D arrays with a single
     element. Multi-dimensional arrays will be flattened to 1D,
 
@@ -35,8 +36,7 @@ def _normalize_points_1D(pts: npt.ArrayLike) -> npt.NDArray[np.float32 | np.floa
 def _normalize_basis_output_1D(
     arr: npt.NDArray[np.float32 | np.float64], input_shape: tuple[int, ...]
 ) -> npt.NDArray[np.float32 | np.float64]:
-    """
-    Normalize the output of a 1D basis function evaluation to the input shape.
+    """Normalize the output of a 1D basis function evaluation to the input shape.
 
     The output array will be reshaped to have the same shape as the input points,
     with the last dimension being the number of basis functions.
