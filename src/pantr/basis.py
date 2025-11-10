@@ -1,9 +1,35 @@
 """Basis function evaluation for various polynomial bases."""
 
+from enum import Enum
+
 import numpy as np
 import numpy.typing as npt
 
-from ._basis_impl import _eval_Bernstein_basis_1D_impl, _eval_cardinal_Bspline_basis_1D_impl
+from ._basis_impl import (
+    _eval_Bernstein_basis_1D_impl,
+    _eval_cardinal_Bspline_basis_1D_impl,
+    _eval_Lagrange_basis_1D_impl,
+)
+
+
+class LagrangeVariant(Enum):
+    """Enumeration for Lagrange polynomial variants.
+
+    Attributes:
+        EQUISPACES (LagrangeVariant): Equispaced points.
+        GAUSS_LEGENDRE (LagrangeVariant): Gauss-Legendre points (roots of Legendre polynomial).
+        GAUSS_LOBATTO_LEGENDRE (LagrangeVariant): Gauss-Lobatto-Legendre points.
+        CHEBYSHEV_1ST (LagrangeVariant): Chebyshev 1st kind points
+            (x = [pi*(k + 0.5)/npts for k in range(npts)]).
+        CHEBYSHEV_2ND (LagrangeVariant): Chebyshev 2nd kind points
+            (x = [pi*k/(npts - 1) for k in range(npts)]).
+    """
+
+    EQUISPACES = "equispaces"
+    GAUSS_LEGENDRE = "gauss_legendre"
+    GAUSS_LOBATTO_LEGENDRE = "gauss_lobatto_legendre"
+    CHEBYSHEV_1ST = "chebyshev_1st"
+    CHEBYSHEV_2ND = "chebyshev_2nd"
 
 
 def eval_Bernstein_basis_1D(
@@ -76,3 +102,33 @@ def evaluate_cardinal_Bspline_basis_1D(
 
     """
     return _eval_cardinal_Bspline_basis_1D_impl(degree, pts)
+
+
+def evaluate_Lagrange_basis_1D(
+    degree: int, variant: LagrangeVariant, pts: npt.ArrayLike
+) -> npt.NDArray[np.float32 | np.float64]:
+    r"""Evaluate Lagrange basis polynomials at points using the specified variant.
+
+    The polynomials are defined in the interval [0, 1] and are given by the formula:
+    \[
+    L_{n,i}(t) = \prod_{j=0}^{n} \frac{t - x_j}{x_i - x_j}
+    \]
+    where \( x_i \) are the points at which the basis is evaluated.
+
+    The variant determines the points at which the basis is evaluated.
+    central cardinal B-spline basis.
+
+    Args:
+        degree (int): Degree of the B-spline basis. Must be non-negative.
+        variant (LagrangeVariant): Variant of the Lagrange basis.
+        pts (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
+            Types different from float32 or float64 are automatically converted to float64.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape
+        as the input points and the last dimension equal to (degree + 1).
+
+    Raises:
+        ValueError: If provided degree is negative.
+    """
+    return _eval_Lagrange_basis_1D_impl(degree, variant, pts)
