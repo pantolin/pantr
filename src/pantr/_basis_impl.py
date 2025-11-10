@@ -103,14 +103,13 @@ def _eval_Bernstein_basis_1D_impl(
                [0.0625, 0.375 , 0.5625],
                [0.    , 0.    , 1.    ]])
     """
-
     if n < 0:
         raise ValueError("degree must be non-negative")
 
     # Get input shape before normalization (handle scalars and lists)
     if isinstance(t, np.ndarray):
         input_shape = t.shape
-    elif isinstance(t, (list, tuple)):
+    elif isinstance(t, list | tuple):
         input_shape = np.array(t).shape
     else:  # scalar
         input_shape = ()
