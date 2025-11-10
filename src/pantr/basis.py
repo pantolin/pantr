@@ -19,8 +19,9 @@ def eval_Bernstein_basis_1D(
 
     Args:
         degree (Integral): Degree of the Bernstein polynomials. Must be non-negative.
-        pts (npt.ArrayLike): Evaluation points. Evaluation points. Can be a scalar, list, or numpy array.
-            Types different from float32 or float64 are automatically converted to float64.
+        pts (npt.ArrayLike): Evaluation points. Can be a scalar, list, or
+            numpy array. Types different from float32 or float64 are
+            automatically converted to float64.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape as
