@@ -43,6 +43,7 @@ docs = [
   "jupytext>=1.16,<2",
   "markdown>=3.5,<4",
   "myst-parser>=2.0,<3",
+  "linkify-it-py>=2.0,<3",
 ]
 
 [project.urls]
