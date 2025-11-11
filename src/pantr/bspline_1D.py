@@ -8,6 +8,7 @@ from numpy import typing as npt
 
 from ._bspline_1D_impl import (
     _compute_num_basis_impl,
+    _eval_Bspline_basis_1D_impl,
     _get_cardinal_intervals_impl,
     _get_unique_knots_and_multiplicity_impl,
 )
@@ -384,3 +385,38 @@ class Bspline1D:
             npt.NDArray[np.bool_],
             _get_cardinal_intervals_impl(self._knots, self._degree, self._tol),
         )
+
+    def eval_basis(
+        self, pts: npt.ArrayLike
+    ) -> tuple[npt.NDArray[np.float32 | np.float64], npt.NDArray[np.int_]]:
+        """Evaluate the B-spline basis functions at the given points.
+
+        Args:
+            pts (npt.ArrayLike): Evaluation points.
+
+        Returns:
+            tuple[
+                npt.NDArray[np.float32] | npt.NDArray[np.float64],
+                npt.NDArray[np.int_]
+            ]: Tuple containing:
+                - basis_values: (npt.NDArray[np.float32] | npt.NDArray[np.float64])
+                  Array of shape matching `pts` with the last dimension length (degree+1),
+                  containing the basis function values evaluated at each point.
+                - first_basis_indices: (npt.NDArray[np.int_])
+                  1D integer array indicating the index of the first nonzero basis function
+                  for each evaluation point. The length is the same as the number
+                  of evaluation points.
+
+        Raises:
+                ValueError: If any evaluation points are outside the B-spline domain.
+
+        Example:
+            >>> bspline = Bspline1D([0, 0, 0, 0.25, 0.7, 0.7, 1, 1, 1], 2)
+            >>> bspline.eval_basis([0.0, 0.5, 0.75, 1.0])
+            (array([[1.        , 0.        , 0.        ],
+                    [0.12698413, 0.5643739 , 0.30864198],
+                    [0.69444444, 0.27777778, 0.02777778],
+                    [0.        , 0.        , 1.        ]]),
+             array([0, 1, 3, 3]))
+        """
+        return _eval_Bspline_basis_1D_impl(self, pts)

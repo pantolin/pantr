@@ -5,10 +5,18 @@ operations including basis function evaluation, knot analysis, and geometric
 computations.
 """
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import numpy.typing as npt
 from numba import njit
 from numba.core import types as nb_types
+
+from ._basis_impl import _eval_Bernstein_basis_1D_impl
+from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
+
+if TYPE_CHECKING:
+    from .bspline_1D import Bspline1D
 
 nb_Tuple = nb_types.Tuple
 nb_bool = nb_types.boolean
@@ -298,7 +306,7 @@ def _get_last_knot_smaller_equal_impl(
     ],
     cache=True,
 )  # type: ignore[misc]
-def _evaluate_basis_Cox_de_Boor_impl(
+def _eval_basis_Cox_de_Boor_impl(
     knots: npt.NDArray[np.float32 | np.float64],
     degree: int,
     periodic: bool,
@@ -544,3 +552,107 @@ def _create_bspline_Bezier_extraction_operators_impl(
                 Cs[elem_id + 1, reg - r : reg + 1, reg - r] = C[degree - r : degree + 1, degree]
 
     return Cs
+
+
+def _eval_Bspline_basis_Bernstein_like_1D(
+    spline: "Bspline1D",
+    pts: npt.NDArray[np.float32 | np.float64],
+) -> tuple[npt.NDArray[np.float32 | np.float64], npt.NDArray[np.int_]]:
+    """Evaluate B-spline basis functions when they reduce to Bernstein polynomials.
+
+    This function is used when the B-spline has Bézier-like knots, allowing
+    direct evaluation using Bernstein basis functions.
+
+    Args:
+        spline (Bspline1D): B-spline object with Bézier-like knots.
+        pts (npt.NDArray[np.float32 | np.float64]): Evaluation points.
+
+    Returns:
+        tuple[npt.NDArray[np.float32 | np.float64], npt.NDArray[np.int_]]: Tuple of
+            (basis_values, first_basis_indices) where basis_values is an array of shape
+            (number pts, degree+1) that contains the Bernstein basis function values and
+            first_basis_indices contains the indices of the first non-zero basis function
+            for each point.
+
+    Raises:
+        ValueError: If the B-spline does not have Bézier-like knots.
+    """
+    if not spline.has_Bezier_like_knots():
+        raise AssertionError("B-spline does not have Bézier-like knots.")
+
+    # map the points to the reference interval [0, 1]
+    k0, k1 = spline.domain
+    pts = (pts - k0) / (k1 - k0)
+
+    # the first basis function is always the 0
+    first_basis_ids = np.zeros(pts.size, dtype=np.int_)
+
+    return _eval_Bernstein_basis_1D_impl(spline.degree, pts), first_basis_ids
+
+
+def _eval_Bspline_basis_1D_impl(
+    spline: Bspline1D, pts: npt.ArrayLike
+) -> tuple[npt.NDArray[np.float32 | np.float64], npt.NDArray[np.int_]]:
+    """Evaluate B-spline basis functions at given points.
+
+    This function automatically selects the most efficient evaluation method:
+    - For Bézier-like knots: direct Bernstein evaluation
+    - For general knots: Cox-de Boor recursion
+
+    In both cases it calls vectorized or numba implementations.
+
+    Args:
+        spline (Bspline1D): B-spline object defining the basis.
+        pts (npt.ArrayLike): Evaluation points.
+
+    Returns:
+        tuple[
+            npt.NDArray[np.float32] | npt.NDArray[np.float64],
+            npt.NDArray[np.int_]
+        ]: Tuple containing:
+            - basis_values: (npt.NDArray[np.float32] | npt.NDArray[np.float64])
+              Array of shape matching `pts` with the last dimension length (degree+1),
+              containing the basis function values evaluated at each point.
+            - first_basis_indices: (npt.NDArray[np.int_])
+              1D integer array indicating the index of the first nonzero basis function
+              for each evaluation point. The length is the same as the number of evaluation points.
+
+    Raises:
+        ValueError: If any evaluation points are outside the B-spline domain.
+
+    Example:
+        >>> bspline = Bspline1D([0, 0, 0, 0.25, 0.7, 0.7, 1, 1, 1], 2)
+        >>> _eval_Bspline_basis_1D_impl(bspline, [0.0, 0.5, 0.75, 1.0])
+        (array([[1.        , 0.        , 0.        ],
+                [0.12698413, 0.5643739 , 0.30864198],
+                [0.69444444, 0.27777778, 0.02777778],
+                [0.        , 0.        , 1.        ]]),
+         array([0, 1, 3, 3]))
+    """
+    # Get input shape before normalization (handle scalars and lists)
+    if isinstance(pts, np.ndarray):
+        input_shape = pts.shape
+    elif isinstance(pts, list | tuple):
+        input_shape = np.array(pts).shape
+    else:  # scalar
+        input_shape = ()
+
+    pts = _normalize_points_1D(pts)
+
+    if not np.all(_is_in_domain_impl(spline.knots, spline.degree, pts, spline.tolerance)):
+        raise ValueError(
+            f"One or more values in pts are outside the knot vector domain {spline.domain}"
+        )
+
+    if spline.has_Bezier_like_knots():
+        B, first_indices = _eval_Bspline_basis_Bernstein_like_1D(spline, pts)
+    else:
+        B, first_indices = _eval_basis_Cox_de_Boor_impl(
+            spline.knots, spline.degree, spline.periodic, spline.tolerance, pts
+        )
+
+    first_indices = (
+        first_indices.squeeze() if len(input_shape) == 0 else first_indices.reshape(input_shape)
+    )
+
+    return _normalize_basis_output_1D(B, input_shape), first_indices
