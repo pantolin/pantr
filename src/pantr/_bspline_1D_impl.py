@@ -5,6 +5,8 @@ operations including basis function evaluation, knot analysis, and geometric
 computations.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -37,7 +39,7 @@ def _check_spline_info(knots: npt.NDArray[np.float32 | np.float64], degree: int)
     """Validate basic constraints on B-spline knot vector and degree.
 
     Performs core checks on a B-spline knot vector and polynomial degree,
-    raising a ValueError if any validation fails.
+    raising an AssertionError if any validation fails.
 
     Args:
         knots (npt.NDArray[np.float32 | np.float64]): 1D array representing the B-spline
@@ -45,18 +47,18 @@ def _check_spline_info(knots: npt.NDArray[np.float32 | np.float64], degree: int)
         degree (int): Non-negative polynomial degree for the B-spline.
 
     Raises:
-        ValueError: If `knots` is not 1-dimensional, if `degree` is negative,
+        AssertionError: If `knots` is not 1-dimensional, if `degree` is negative,
             if there are fewer than `2*degree+2` knots, or if the knot vector
             is not non-decreasing.
     """
     if knots.ndim != 1:
-        raise ValueError("knots must be a 1D array")
+        raise AssertionError("knots must be a 1D array")
     if degree < 0:
-        raise ValueError("degree must be non-negative")
+        raise AssertionError("degree must be non-negative")
     if knots.size < (2 * degree + 2):
-        raise ValueError("knots must have at least 2*degree+2 elements")
+        raise AssertionError("knots must have at least 2*degree+2 elements")
     if not np.all(np.diff(knots) >= knots.dtype.type(0.0)):
-        raise ValueError("knots must be non-decreasing")
+        raise AssertionError("knots must be non-decreasing")
 
 
 @njit(
@@ -82,12 +84,12 @@ def _get_multiplicity_of_first_knot_in_domain_impl(
         int: Multiplicity of the first knot in the domain.
 
     Raises:
-        ValueError: If tolerance is not positive or basic validation
+        AssertionError: If tolerance is not positive or basic validation
             of knots and degree fails.
     """
     _check_spline_info(knots, degree)
     if tol <= 0:
-        raise ValueError("tol must be positive")
+        raise AssertionError("tol must be positive")
 
     first_knot = knots[degree]
     return int(np.sum(np.isclose(knots[: degree + 1], first_knot, atol=tol)))
@@ -122,13 +124,13 @@ def _get_unique_knots_and_multiplicity_impl(
             the same length.
 
     Raises:
-        ValueError: If tolerance is not positive or basic validation
+        AssertionError: If tolerance is not positive or basic validation
             of knots and degree fails.
     """
     _check_spline_info(knots, degree)
 
     if tol <= 0:
-        raise ValueError("tol must be positive")
+        raise AssertionError("tol must be positive")
 
     # Round to tolerance precision for grouping
     dtype = knots.dtype
@@ -193,17 +195,17 @@ def _is_in_domain_impl(
             are within the domain. It has the same length as the number of points.
 
     Raises:
-        ValueError: If tolerance is not positive or basic validation
+        AssertionError: If tolerance is not positive or basic validation
             of knots and degree fails.
     """
     _check_spline_info(knots, degree)
 
     if tol <= 0:
-        raise ValueError("tol must be positive")
+        raise AssertionError("tol must be positive")
     if pts.ndim != 1:
-        raise ValueError("pts must be a 1D array")
+        raise AssertionError("pts must be a 1D array")
     if pts.size == 0:
-        raise ValueError("pts must have at least one element")
+        raise AssertionError("pts must have at least one element")
 
     knot_begin, knot_end = knots[degree], knots[-degree - 1]
     return np.logical_and(  # type: ignore[no-any-return]
@@ -243,13 +245,13 @@ def _compute_num_basis_impl(
         int: Number of basis functions.
 
     Raises:
-        ValueError: If tolerance is not positive or basic validation
+        AssertionError: If tolerance is not positive or basic validation
             of knots and degree fails.
     """
     _check_spline_info(knots, degree)
 
     if tol <= 0:
-        raise ValueError("tol must be positive")
+        raise AssertionError("tol must be positive")
 
     num_basis = int(len(knots) - degree - 1)
 
@@ -284,17 +286,17 @@ def _get_last_knot_smaller_equal_impl(
         npt.NDArray[np.int_]: Array of computed indices, one for each point in pts.
 
     Raises:
-        ValueError: If knots are not non-decreasing, or is not a 1D array,
+        AssertionError: If knots are not non-decreasing, or is not a 1D array,
             or points array is invalid (is not a 1D array or has no elements).
     """
     if knots.ndim != 1:
-        raise ValueError("knots must be a 1D array")
+        raise AssertionError("knots must be a 1D array")
     if not np.all(np.diff(knots) >= knots.dtype.type(0.0)):
-        raise ValueError("knots must be non-decreasing")
+        raise AssertionError("knots must be non-decreasing")
     if pts.ndim != 1:
-        raise ValueError("pts must be a 1D array")
+        raise AssertionError("pts must be a 1D array")
     if pts.size == 0:
-        raise ValueError("pts must have at least one element")
+        raise AssertionError("pts must have at least one element")
 
     return np.searchsorted(knots, pts, side="right") - 1
 
@@ -332,7 +334,7 @@ def _eval_basis_Cox_de_Boor_impl(
             the first non-zero basis function for each point.
 
     Raises:
-        ValueError: If the knot vector or degree fails basic validation, if tol is negative,
+        AssertionError: If the knot vector or degree fails basic validation, if tol is negative,
             if pts is not a 1D array, or if pts has no elements, or if points are outside domain.
     """
     # See Spline Methods Draft, by Tom Lychee. Algorithm 2.23
@@ -340,13 +342,13 @@ def _eval_basis_Cox_de_Boor_impl(
     _check_spline_info(knots, degree)
 
     if tol < 0:
-        raise ValueError("tol must be positive")
+        raise AssertionError("tol must be positive")
     if pts.ndim != 1:
-        raise ValueError("pts must be a 1D array")
+        raise AssertionError("pts must be a 1D array")
     if pts.size == 0:
-        raise ValueError("pts must have at least one element")
+        raise AssertionError("pts must have at least one element")
     if not np.all(_is_in_domain_impl(knots, degree, pts, tol)):
-        raise ValueError("pts are outside domain.")
+        raise AssertionError("pts are outside domain.")
 
     knot_ids = _get_last_knot_smaller_equal_impl(knots, pts)
 
@@ -422,7 +424,7 @@ def _get_cardinal_intervals_impl(
             It has length equal to the number of intervals.
 
     Raises:
-        ValueError: If the knot vector or degree fails basic validation or if tol is negative.
+        AssertionError: If the knot vector or degree fails basic validation or if tol is negative.
     """
     _, mult = _get_unique_knots_and_multiplicity_impl(knots, degree, tol, in_domain=True)
     num_intervals = len(mult) - 1
@@ -488,7 +490,7 @@ def _create_bspline_Bezier_extraction_operators_impl(
             Bernstein basis functions to B-spline basis functions for that interval.
 
     Raises:
-        ValueError: If the knot vector or degree fails basic validation or if tol is negative.
+        AssertionError: If the knot vector or degree fails basic validation or if tol is negative.
     """
     unique_knots, mults = _get_unique_knots_and_multiplicity_impl(
         knots, degree, tol, in_domain=True
@@ -497,7 +499,7 @@ def _create_bspline_Bezier_extraction_operators_impl(
     _check_spline_info(knots, degree)
 
     if tol < 0:
-        raise ValueError("tol must be positive")
+        raise AssertionError("tol must be positive")
 
     n_elems = len(unique_knots) - 1
 
@@ -555,7 +557,7 @@ def _create_bspline_Bezier_extraction_operators_impl(
 
 
 def _eval_Bspline_basis_Bernstein_like_1D(
-    spline: "Bspline1D",
+    spline: Bspline1D,
     pts: npt.NDArray[np.float32 | np.float64],
 ) -> tuple[npt.NDArray[np.float32 | np.float64], npt.NDArray[np.int_]]:
     """Evaluate B-spline basis functions when they reduce to Bernstein polynomials.
