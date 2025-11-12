@@ -140,7 +140,7 @@ class Bspline1D:
         if knots.size < (2 * degree + 2):
             raise ValueError("knots must have at least 2*degree+2 elements")
 
-        if not np.all(np.diff(knots) >= knots.dtype(0.0)):
+        if not np.all(np.diff(knots) >= 0):
             raise ValueError("knots must be non-decreasing")
 
         num_basis = _compute_num_basis_impl(knots, degree, periodic, tol)
