@@ -8,6 +8,7 @@ from pantr._bspline_1D_impl import (
     _compute_num_basis_impl,
     _create_bspline_Bezier_extraction_operators_impl,
     _eval_basis_Cox_de_Boor_impl,
+    _eval_Bspline_basis_Bernstein_like_1D,
     _get_cardinal_intervals_impl,
     _get_last_knot_smaller_equal_impl,
     _get_multiplicity_of_first_knot_in_domain_impl,
@@ -771,3 +772,105 @@ class TestCreateBsplineBezierExtractionOperators:
         degree = 2
         with pytest.raises(AssertionError, match="tol must be positive"):
             _create_bspline_Bezier_extraction_operators_impl(knots, degree, -1.0)
+
+
+class TestAdditionalEdgeCases:
+    """Additional edge-case tests to improve coverage for bspline tools."""
+
+    def test_is_in_domain_negative_tol(self) -> None:
+        """_is_in_domain_impl raises for negative tol."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
+        degree = 2
+        with pytest.raises(AssertionError, match="tol must be positive"):
+            _is_in_domain_impl(knots, degree, np.array([0.0, 0.5]), -1.0)
+
+    def test_get_last_knot_smaller_equal_empty_pts(self) -> None:
+        """_get_last_knot_smaller_equal_impl empty pts raise."""
+        with pytest.raises(AssertionError, match="pts must have at least one element"):
+            _get_last_knot_smaller_equal_impl(np.array([0.0, 1.0]), np.array([], dtype=float))
+
+    def test_eval_basis_cox_de_boor_input_errors(self) -> None:
+        """_eval_basis_Cox_de_Boor_impl should validate tol and pts shape/size."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
+        degree = 2
+        periodic = False
+        with pytest.raises(AssertionError, match="tol must be positive"):
+            _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, -1.0, np.array([0.5]))
+        with pytest.raises(AssertionError, match="pts must have at least one element"):
+            _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, 1e-10, np.array([], dtype=float))
+
+    def test_extraction_non_open_left_end_branch(self) -> None:
+        """Cover branch when first knot in domain multiplicity < degree+1."""
+        # degree=2, choose first three knots not all equal so multiplicity<3
+        knots = np.array([0.0, 0.1, 0.1, 0.5, 1.0, 1.0], dtype=np.float64)
+        degree = 2
+        tol = 1e-10
+        Cs = _create_bspline_Bezier_extraction_operators_impl(knots, degree, tol)
+        # Shape sanity
+        assert Cs.shape[1:] == (degree + 1, degree + 1)
+        # The first element matrix should be modified from identity when mult < degree+1
+        assert not np.allclose(Cs[0], np.eye(degree + 1))
+
+    def test_eval_basis_public_shapes_and_domain_error(self) -> None:
+        """Bspline1D.eval_basis covers scalar/list/ndarray inputs and domain error."""
+        knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = Bspline1D(knots, degree)
+        # scalar input
+        B_scalar, idx_scalar = spline.eval_basis(0.0)
+        assert B_scalar.shape == (degree + 1,)
+        assert np.isscalar(idx_scalar) or np.array(idx_scalar).shape == ()
+        # list input
+        pts_list = [0.0, 0.5, 1.0]
+        B_list, idx_list = spline.eval_basis(pts_list)
+        assert B_list.shape == (len(pts_list), degree + 1)
+        assert idx_list.shape == (len(pts_list),)
+        # ndarray input
+        pts_arr = np.array([0.25, 0.75], dtype=np.float64)
+        B_arr, idx_arr = spline.eval_basis(pts_arr)
+        assert B_arr.shape == (2, degree + 1)
+        assert idx_arr.shape == (2,)
+        # outside domain error
+        with pytest.raises(ValueError, match="outside the knot vector domain"):
+            spline.eval_basis([-0.1, 1.1])
+
+    def test_eval_bernstein_like_direct_raises_on_non_bezier(self) -> None:
+        """Direct Bernstein-like evaluator should assert on non-Bézier-like splines."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = Bspline1D(knots, degree)
+        with pytest.raises(AssertionError, match="B-spline does not have Bézier-like knots"):
+            _eval_Bspline_basis_Bernstein_like_1D(spline, np.array([0.0, 0.5, 1.0]))
+
+
+class TestBspline1DCoverageTargets:
+    """Additional tests to hit uncovered branches in bspline_1D.py."""
+
+    def test_validate_input_2d_array_type_error(self) -> None:
+        """2D numpy array for knots should raise TypeError at ndim check."""
+        knots = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float64)
+        with pytest.raises(TypeError, match="knots must be a 1D numpy array or Python list"):
+            Bspline1D(knots, 2)
+
+    def test_validate_input_invalid_dtype_value_error(self) -> None:
+        """Non-float32/float64 dtype (e.g., float16) should raise ValueError."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float16)
+        with pytest.raises(ValueError, match="knots type must be float \\(32 or 64 bits\\)"):
+            Bspline1D(knots, 2)
+
+    def test_validate_input_periodic_not_enough_basis(self) -> None:
+        """Periodic case with too few basis functions should raise ValueError."""
+        # This periodic-like vector yields fewer than degree+1 basis functions for degree=2.
+        knots = np.array([-1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0], dtype=np.float64)
+        with pytest.raises(ValueError, match="Not enough knots for the specified degree"):
+            Bspline1D(knots, 2, periodic=True)
+
+    def test_open_end_checks_are_false_for_periodic(self) -> None:
+        """has_left_end_open/has_right_end_open should return False if periodic."""
+        degree = 2
+        knots = create_uniform_periodic_knot_vector(
+            num_intervals=3, degree=degree, domain=(0.0, 1.0)
+        )
+        spl = Bspline1D(knots, degree, periodic=True)
+        assert spl.has_left_end_open() is False
+        assert spl.has_right_end_open() is False
