@@ -47,12 +47,13 @@ def _check_spline_info(knots: npt.NDArray[np.float32 | np.float64], degree: int)
         degree (int): Non-negative polynomial degree for the B-spline.
 
     Raises:
-        AssertionError: If `knots` is not 1-dimensional, if `degree` is negative,
+        TypeError: If `knots` is not 1-dimensional.
+        AssertionError: If `degree` is negative,
             if there are fewer than `2*degree+2` knots, or if the knot vector
             is not non-decreasing.
     """
     if knots.ndim != 1:
-        raise AssertionError("knots must be a 1D array")
+        raise TypeError("knots must be a 1D array")
     if degree < 0:
         raise AssertionError("degree must be non-negative")
     if knots.size < (2 * degree + 2):
@@ -195,6 +196,7 @@ def _is_in_domain_impl(
             are within the domain. It has the same length as the number of points.
 
     Raises:
+        TypeError: If `pts` is not 1-dimensional.
         AssertionError: If tolerance is not positive or basic validation
             of knots and degree fails.
     """
@@ -203,7 +205,7 @@ def _is_in_domain_impl(
     if tol <= 0:
         raise AssertionError("tol must be positive")
     if pts.ndim != 1:
-        raise AssertionError("pts must be a 1D array")
+        raise TypeError("pts must be a 1D array")
     if pts.size == 0:
         raise AssertionError("pts must have at least one element")
 
@@ -286,15 +288,16 @@ def _get_last_knot_smaller_equal_impl(
         npt.NDArray[np.int_]: Array of computed indices, one for each point in pts.
 
     Raises:
-        AssertionError: If knots are not non-decreasing, or is not a 1D array,
-            or points array is invalid (is not a 1D array or has no elements).
+        TypeError: If `knots` or `pts` is not 1-dimensional.
+        AssertionError: If knots are not non-decreasing,
+            or points array has no elements.
     """
     if knots.ndim != 1:
-        raise AssertionError("knots must be a 1D array")
+        raise TypeError("knots must be a 1D array")
     if not np.all(np.diff(knots) >= knots.dtype.type(0.0)):
         raise AssertionError("knots must be non-decreasing")
     if pts.ndim != 1:
-        raise AssertionError("pts must be a 1D array")
+        raise TypeError("pts must be a 1D array")
     if pts.size == 0:
         raise AssertionError("pts must have at least one element")
 
@@ -334,8 +337,9 @@ def _eval_basis_Cox_de_Boor_impl(
             the first non-zero basis function for each point.
 
     Raises:
+        TypeError: If `pts` is not 1-dimensional.
         AssertionError: If the knot vector or degree fails basic validation, if tol is negative,
-            if pts is not a 1D array, or if pts has no elements, or if points are outside domain.
+            if pts has no elements, or if points are outside domain.
     """
     # See Spline Methods Draft, by Tom Lychee. Algorithm 2.23
 
@@ -344,7 +348,7 @@ def _eval_basis_Cox_de_Boor_impl(
     if tol < 0:
         raise AssertionError("tol must be positive")
     if pts.ndim != 1:
-        raise AssertionError("pts must be a 1D array")
+        raise TypeError("pts must be a 1D array")
     if pts.size == 0:
         raise AssertionError("pts must have at least one element")
     if not np.all(_is_in_domain_impl(knots, degree, pts, tol)):
