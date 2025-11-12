@@ -496,14 +496,14 @@ def _create_bspline_Bezier_extraction_operators_impl(
     Raises:
         AssertionError: If the knot vector or degree fails basic validation or if tol is negative.
     """
+    if tol < 0:
+        raise AssertionError("tol must be positive")
+
     unique_knots, mults = _get_unique_knots_and_multiplicity_impl(
         knots, degree, tol, in_domain=True
     )
 
     _check_spline_info(knots, degree)
-
-    if tol < 0:
-        raise AssertionError("tol must be positive")
 
     n_elems = len(unique_knots) - 1
 

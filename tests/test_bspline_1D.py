@@ -519,6 +519,13 @@ class TestGetUniqueKnotsAndMultiplicity:
         np.testing.assert_array_almost_equal(unique_knots, expected_unique)
         np.testing.assert_array_equal(multiplicities, expected_mults)
 
+    def test_negative_tolerance_error(self) -> None:
+        """Negative tolerance should raise AssertionError."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
+        degree = 2
+        with pytest.raises(AssertionError, match="tol must be positive"):
+            _get_unique_knots_and_multiplicity_impl(knots, degree, -1.0, in_domain=True)
+
 
 class TestIsInDomain:
     """Test the _is_in_domain_impl function."""
@@ -813,6 +820,13 @@ class TestAdditionalEdgeCases:
 
     def test_eval_basis_public_shapes_and_domain_error(self) -> None:
         """Bspline1D.eval_basis covers scalar/list/ndarray inputs and domain error."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = Bspline1D(knots, degree)
+        # non Bernstein evaluation path.
+        B_scalar, idx_scalar = spline.eval_basis(0.0)
+        assert B_scalar.shape == (degree + 1,)
+        assert np.isscalar(idx_scalar) or np.array(idx_scalar).shape == ()
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
         spline = Bspline1D(knots, degree)
@@ -874,3 +888,51 @@ class TestBspline1DCoverageTargets:
         spl = Bspline1D(knots, degree, periodic=True)
         assert spl.has_left_end_open() is False
         assert spl.has_right_end_open() is False
+
+    def test_extraction_first_knot_multiplicity_one_branch(self) -> None:
+        """Cover branch where first-domain multiplicity == 1 (degree=2 => reg=1)."""
+        # degree=2, first three knots are all different so multiplicity at index 2 is 1
+        knots = np.array([0.0, 0.1, 0.2, 0.6, 1.0, 1.0], dtype=np.float64)
+        Cs = _create_bspline_Bezier_extraction_operators_impl(knots, 2, 1e-10)
+        # At least one coefficient in the first extraction matrix should differ from identity
+        assert Cs.shape[1:] == (3, 3)
+        assert not np.allclose(Cs[0], np.eye(3))
+
+    def test_check_spline_info_knots_not_1d(self) -> None:
+        """_check_spline_info should raise when knots is not 1D."""
+        knots = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float64)
+        # Numba dispatcher rejects non-1D arrays at signature level
+        with pytest.raises(TypeError):
+            _check_spline_info(knots, 2)
+
+    def test_is_in_domain_pts_not_1d(self) -> None:
+        """_is_in_domain_impl should raise when pts is not 1D."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
+        pts = np.array([[0.0, 0.5]], dtype=np.float64)
+        # Numba dispatcher rejects non-1D arrays at signature level
+        with pytest.raises(TypeError):
+            _is_in_domain_impl(knots, 2, pts, 1e-10)
+
+    def test_get_last_knot_smaller_equal_knots_not_1d(self) -> None:
+        """_get_last_knot_smaller_equal_impl should raise when knots is not 1D."""
+        knots = np.array([[0.0, 0.5], [1.0, 1.5]], dtype=np.float64)
+        pts = np.array([0.3, 0.7], dtype=np.float64)
+        # Numba dispatcher rejects non-1D arrays at signature level
+        with pytest.raises(TypeError):
+            _get_last_knot_smaller_equal_impl(knots, pts)
+
+    def test_get_last_knot_smaller_equal_pts_not_1d(self) -> None:
+        """_get_last_knot_smaller_equal_impl should raise when pts is not 1D."""
+        knots = np.array([0.0, 0.5, 1.0, 1.5], dtype=np.float64)
+        pts = np.array([[0.3, 0.7]], dtype=np.float64)
+        # Numba dispatcher rejects non-1D arrays at signature level
+        with pytest.raises(TypeError):
+            _get_last_knot_smaller_equal_impl(knots, pts)
+
+    def test_eval_basis_cox_de_boor_pts_not_1d(self) -> None:
+        """__Cox_de_Boor_impl should raise when pts is not 1D."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
+        pts = np.array([[0.25, 0.75]], dtype=np.float64)
+        # Numba dispatcher rejects non-1D arrays at signature level
+        with pytest.raises(TypeError):
+            _eval_basis_Cox_de_Boor_impl(knots, 2, False, 1e-10, pts)
