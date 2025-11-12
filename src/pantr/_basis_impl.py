@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-import numba as nb  # type: ignore[import-untyped]
+import numba as nb
 import numpy as np
 import numpy.typing as npt
 from numpy.polynomial import chebyshev, legendre
