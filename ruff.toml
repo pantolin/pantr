@@ -25,6 +25,7 @@ ignore = ["D104"]
 convention = "google"
 
 [lint.per-file-ignores]
+"src/**/*.py" = ["ANN101"]
 "tests/**/*.py" = [
   "D100",
   "D101",
