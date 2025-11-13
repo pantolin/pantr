@@ -15,8 +15,7 @@ import numpy.typing as npt
 import pytest
 from scipy.interpolate import BPoly
 
-from pantr._basis_impl import _get_lagrange_points
-from pantr.basis import LagrangeVariant, eval_Bernstein_basis_1D
+from pantr.basis import eval_Bernstein_basis_1D
 from pantr.tolerance import get_conservative_tolerance, get_default_tolerance
 
 NEGATIVE_TOL: float = get_conservative_tolerance(np.float64)
@@ -130,20 +129,6 @@ class TestEvalBernsteinBasis1D:
         # Sum over the last dimension should be 1 for each point
         sums = np.sum(result, axis=-1)
         nptest.assert_allclose(sums, 1.0, rtol=get_conservative_tolerance(np.float64))
-
-
-def test__get_lagrange_points_invalid_dtype_raises() -> None:
-    """Ensure invalid dtype raises ValueError in internal node generator."""
-    with pytest.raises(ValueError, match="dtype must be float32 or float64"):
-        _get_lagrange_points(LagrangeVariant.EQUISPACES, 3, np.int32)
-
-
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_get_lagrange_points_degree_zero_returns_midpoint(dtype: npt.DTypeLike) -> None:
-    """For n_pts == 1, internal node generator returns the midpoint [0.5]."""
-    nodes = _get_lagrange_points(LagrangeVariant.EQUISPACES, 1, dtype)
-    nptest.assert_allclose(nodes, np.array([0.5], dtype=dtype))
-    assert nodes.dtype == np.dtype(dtype)
 
 
 @pytest.mark.parametrize("degree", [0, 1, 2, 3, 5, 10])

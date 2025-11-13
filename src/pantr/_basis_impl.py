@@ -8,10 +8,16 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 import numba as nb
 import numpy as np
 import numpy.typing as npt
-from numpy.polynomial import chebyshev, legendre
 from scipy.interpolate import BarycentricInterpolator
 
 from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
+from .quad import (
+    get_chebyshev_gauss_1st_kind_quadrature_1D,
+    get_chebyshev_gauss_2nd_kind_quadrature_1D,
+    get_gauss_legendre_quadrature_1D,
+    get_gauss_lobatto_legendre_quadrature_1D,
+    get_trapezoidal_quadrature_1D,
+)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -293,6 +299,9 @@ def _get_lagrange_points(
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Get nodes for a Lagrange basis on [0, 1] for the given variant and size.
 
+    Note that for Gauss-Lobatto-Legendre and Chebyshev second kind the
+    number of points must be at least 2.
+
     Args:
         variant (LagrangeVariant): The variant of the Lagrange basis.
         n_pts (int): The number of points.
@@ -305,52 +314,17 @@ def _get_lagrange_points(
     Raises:
         ValueError: If dtype is not float32 or float64.
     """
-    dtype_obj = np.dtype(dtype)
-    if dtype_obj.type not in (np.float32, np.float64):
-        raise ValueError("dtype must be float32 or float64")
-    target_dtype = np.float32 if dtype_obj.type == np.float32 else np.float64
-
-    # Compare using string value to avoid runtime dependency on the Enum symbol
     variant_value = getattr(variant, "value", variant)
-
-    # Degree-zero safeguard: any single node in [0, 1] is valid; choose the midpoint.
-    if n_pts == 1:
-        return np.array([0.5], dtype=target_dtype)
-
     if variant_value == "equispaces":
-        return np.linspace(0, 1, n_pts, dtype=target_dtype)
-
-    if variant_value == "gauss_legendre":
-        coefs64: npt.NDArray[np.float64] = np.zeros(n_pts + 1, dtype=np.float64)
-        coefs64[-1] = 1.0
-        legroots_t = cast(
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
-            legendre.legroots,
-        )
-        nodes = legroots_t(coefs64)
-
+        return get_trapezoidal_quadrature_1D(n_pts, dtype)[0]
+    elif variant_value == "gauss_legendre":
+        return get_gauss_legendre_quadrature_1D(n_pts, dtype)[0]
     elif variant_value == "gauss_lobatto_legendre":
-        if n_pts == 2:  # noqa: PLR2004
-            nodes = np.array([-1.0, 1.0], dtype=target_dtype)
-        else:
-            # Get its derivative, P'_(n-1)
-            # The interior nodes are the roots of this derivative
-            basis_t = cast(Callable[[int], Any], legendre.Legendre.basis)
-            P_basis = basis_t(n_pts - 1)
-            P_prime = P_basis.deriv()
-            interior_nodes = cast(npt.NDArray[np.float64], P_prime.roots())
-
-            nodes = np.concatenate((np.array([-1.0]), interior_nodes, np.array([1.0])))
-
+        return get_gauss_lobatto_legendre_quadrature_1D(n_pts, dtype)[0]
     elif variant_value == "chebyshev_1st":
-        cheb1_t = cast(Callable[[int], npt.NDArray[np.float64]], chebyshev.chebpts1)
-        nodes = cheb1_t(n_pts)
-
+        return get_chebyshev_gauss_1st_kind_quadrature_1D(n_pts, dtype)[0]
     else:  # "chebyshev_2nd"
-        cheb2_t = cast(Callable[[int], npt.NDArray[np.float64]], chebyshev.chebpts2)
-        nodes = cheb2_t(n_pts)
-
-    return ((nodes + 1.0) * 0.5).astype(target_dtype)
+        return get_chebyshev_gauss_2nd_kind_quadrature_1D(n_pts, dtype)[0]
 
 
 def _eval_Lagrange_basis_1D_impl(
