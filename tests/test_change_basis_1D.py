@@ -3,9 +3,16 @@
 import numpy as np
 import pytest
 
-from pantr.basis import LagrangeVariant, eval_Bernstein_basis_1D, eval_Lagrange_basis_1D
+from pantr.basis import (
+    LagrangeVariant,
+    eval_Bernstein_basis_1D,
+    eval_cardinal_Bspline_basis_1D,
+    eval_Lagrange_basis_1D,
+)
 from pantr.change_basis_1D import (
+    create_Bernstein_to_cardinal_basis_operator,
     create_Bernstein_to_Lagrange_basis_operator,
+    create_cardinal_to_Bernstein_basis_operator,
     create_Lagrange_to_Bernstein_basis_operator,
 )
 
@@ -58,3 +65,38 @@ class TestBernsteinToLagrangeBasisOperator:
 
         C_inv = create_Lagrange_to_Bernstein_basis_operator(degree, variant)
         np.testing.assert_array_almost_equal(lagranges @ C_inv.T, bernsteins)
+
+
+class TestCardinalToBernsteinBasisOperator:
+    """Test the create_cardinal_to_Bernstein_basis_operator function."""
+
+    def test_inverse_relationship(self) -> None:
+        """Test that cardinal to Bernstein is inverse of Bernstein to cardinal."""
+        degree = 2
+        bernstein_to_cardinal = create_Bernstein_to_cardinal_basis_operator(degree)
+        cardinal_to_bernstein = create_cardinal_to_Bernstein_basis_operator(degree)
+
+        # Should be inverse matrices
+        identity = bernstein_to_cardinal @ cardinal_to_bernstein
+        np.testing.assert_array_almost_equal(identity, np.eye(degree + 1))
+
+    def test_negative_degree_error(self) -> None:
+        """Test that negative degree raises ValueError."""
+        with pytest.raises(ValueError, match="Degree must be non-negative"):
+            create_cardinal_to_Bernstein_basis_operator(-1)
+        with pytest.raises(ValueError, match="Degree must be non-negative"):
+            create_Bernstein_to_cardinal_basis_operator(-1)
+
+    def test_values(self) -> None:
+        """Test that cardinal evaluations transformed with operator return Bernstein evaluations."""
+        for degree in [1, 2, 3, 4]:
+            n_pts = 10
+            tt = np.linspace(0.0, 1.0, n_pts)
+            bernsteins = eval_Bernstein_basis_1D(degree, tt)
+            cardinals = eval_cardinal_Bspline_basis_1D(degree, tt)
+
+            C = create_cardinal_to_Bernstein_basis_operator(degree)
+            np.testing.assert_array_almost_equal(bernsteins, cardinals @ C.T)
+
+            C_inv = create_Bernstein_to_cardinal_basis_operator(degree)
+            np.testing.assert_array_almost_equal(cardinals, bernsteins @ C_inv.T)

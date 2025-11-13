@@ -6,45 +6,14 @@
 #
 """
 
+from collections.abc import Callable
+
 import numpy as np
 import numpy.typing as npt
 
 from ._basis_impl import _get_lagrange_points
-from .basis import LagrangeVariant, eval_Bernstein_basis_1D
-
-#     from .bspline_1D import Bspline1D
-
-
-# def _compute_gauss_quadrature(
-#     n_points: np.int_,
-# ) -> tuple[FloatArray_64, FloatArray_64]:
-#     """Compute Gauss-Legendre quadrature points and weights for the [0, 1] interval.
-
-#     Args:
-#         n_points (np.int_): The number of quadrature points to generate.
-#             Must be positive.
-
-#     Returns:
-#         tuple[FloatArray_64, FloatArray_64]: Tuple containing:
-#             - points (FloatArray_64): The quadrature points in the [0, 1] interval.
-#             - weights (FloatArray_64): The corresponding quadrature weights.
-
-#     Raises:
-#         AssertionError: If number of points is not positive.
-#     """
-#     assert n_points >= 1, "Number of points must be positive"
-
-#     # Get standard Gauss-Legendre points and weights on [-1, 1]
-#     points_ref, weights_ref = np.polynomial.legendre.leggauss(n_points)
-
-#     # Affine transformation to map points from [-1, 1] to [0, 1]
-#     # t = (x + 1) / 2
-#     points = np.float64(0.5) * (points_ref + np.float64(1.0))
-
-#     # Adjust weights for the change of interval: dt = dx / 2
-#     weights = np.float64(0.5) * weights_ref
-
-#     return points, weights
+from .basis import LagrangeVariant, eval_Bernstein_basis_1D, eval_cardinal_Bspline_basis_1D
+from .quad import get_gauss_legendre_quadrature_1D
 
 
 def create_Lagrange_to_Bernstein_basis_operator(
@@ -69,10 +38,12 @@ def create_Lagrange_to_Bernstein_basis_operator(
             C @ [Lagrange values] = [Bernstein values].
 
     Raises:
-        ValueError: If degree is lower than 1.
+        ValueError: If degree is lower than 1 or dtype is not float32 or float64.
     """
     if degree < 1:
         raise ValueError("Degree must at least 1")
+    if dtype not in (np.float32, np.float64):
+        raise ValueError("dtype must be float32 or float64")
 
     points = _get_lagrange_points(lagrange_variant, degree + 1, dtype)
 
@@ -103,135 +74,154 @@ def create_Bernstein_to_Lagrange_basis_operator(
             C @ [Bernstein values] = [Lagrange values].
 
     Raises:
-        ValueError: If degree is lower than 1.
+        ValueError: If degree is lower than 1 or dtype is not float32 or float64.
     """
     if degree < 1:
         raise ValueError("Degree must at least 1")
+    if dtype not in (np.float32, np.float64):
+        raise ValueError("dtype must be float32 or float64")
 
     C = create_Lagrange_to_Bernstein_basis_operator(degree, lagrange_variant, dtype)
     return np.linalg.inv(C)
 
 
-# def _create_change_basis_operator(
-#     new_basis_eval: callable,
-#     old_basis_eval: callable,
-#     n_quad_pts: int,
-#     dtype: np.dtype = np.float64,
-# ) -> npt.NDArray[np.floating]:
-#     """Create a change of basis operator using numerical quadrature.
+def _create_change_basis_operator(
+    new_basis_eval: Callable[
+        [npt.NDArray[np.float32 | np.float64]], npt.NDArray[np.float32 | np.float64]
+    ],
+    old_basis_eval: Callable[
+        [npt.NDArray[np.float32 | np.float64]], npt.NDArray[np.float32 | np.float64]
+    ],
+    n_quad_pts: int,
+    dtype: npt.DTypeLike = np.float64,
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Create a change of basis operator using numerical quadrature.
 
-#     This function computes the transformation matrix M that satisfies:
-#         new_basis(x) = M @ old_basis(x)
+    This function computes the transformation matrix M that satisfies:
+        new_basis(x) = M @ old_basis(x)
 
-#     The matrix is computed by solving the system C = G M^T where:
-#     - G is the Gram matrix of the new basis
-#     - C is the mixed inner product matrix between new and old bases
+    The matrix is computed by solving the system C = G M^T where:
+    - G is the Gram matrix of the new basis
+    - C is the mixed inner product matrix between new and old bases
 
-#     Args:
-#         new_basis_eval (callable): Function that evaluates the new basis at points.
-#         old_basis_eval (callable): Function that evaluates the old basis at points.
-#         n_quad_pts (int): Number of quadrature points for numerical integration.
-#             Must be positive.
-#         dtype (np.dtype): Floating point type for the output matrix.
-#             Defaults to np.float64.
+    Args:
+        new_basis_eval (callable): Function that evaluates the new basis at points.
+        old_basis_eval (callable): Function that evaluates the old basis at points.
+        n_quad_pts (int): Number of quadrature points for numerical integration.
+            Must be positive.
+        dtype (npt.DTypeLike): Floating point type for the output matrix.
+            Defaults to np.float64.
 
-#     Returns:
-#         npt.NDArray[np.floating]: Change of basis transformation matrix.
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Change of basis transformation matrix.
 
-#     Raises:
-#         ValueError: If number of quadrature points is not positive.
-#     """
-#     if n_quad_pts <= 0:
-#         raise ValueError("Number of quadrature points must be positive.")
+    Raises:
+        ValueError: If number of quadrature points is not positive or dtype is not float32 or
+        float64.
+    """
+    if n_quad_pts < 1:
+        raise ValueError("Number of quadrature points must be positive.")
 
-#     # 1. Get Gauss quadrature points and weights for the inner product on [0, 1]
-#     points, weights = _compute_gauss_quadrature(n_quad_pts)
-#     points, weights = points.astype(dtype), weights.astype(dtype)
+    if dtype not in (np.float32, np.float64):
+        raise ValueError("dtype must be float32 or float64")
 
-#     # 2. Pre-evaluate all basis functions at all quadrature points for efficiency
-#     new_basis = new_basis_eval(points)
-#     old_basis = old_basis_eval(points)
+    # 1. Get Gauss-Legendre quadrature points and weights for the inner product on [0, 1]
+    points, weights = get_gauss_legendre_quadrature_1D(n_quad_pts, dtype)
 
-#     # 3. Compute the Gram matrix G for the new basis B: G_kj = <b_k, b_j>
-#     # The inner product <f, g> is approximated by sum(w_m * f(x_m) * g(x_m))
-#     weights_diag = np.diag(weights)
-#     G = new_basis.T @ weights_diag @ new_basis
+    # 2. Pre-evaluate all basis functions at all quadrature points for efficiency
+    new_basis = new_basis_eval(points)
+    old_basis = old_basis_eval(points)
 
-#     # 4. Compute the mixed inner product matrix C: C_ki = <b_k, a_i>
-#     C = new_basis.T @ weights_diag @ old_basis
+    # 3. Compute the Gram matrix G for the new basis B: G_kj = <b_k, b_j>
+    # The inner product <f, g> is approximated by sum(w_m * f(x_m) * g(x_m))
+    weights_diag = np.diag(weights)
+    G = new_basis.T @ weights_diag @ new_basis
 
-#     # 5. Solve the system C = G M^T for M^T, which means M = (G^-1 C)^T
-#     return np.linalg.solve(G, C).T
+    # 4. Compute the mixed inner product matrix C: C_ki = <b_k, a_i>
+    C = new_basis.T @ weights_diag @ old_basis
 
-
-# def create_Bernstein_to_cardinal_basis_operator(
-#     degree: int,
-#     dtype: np.dtype = np.float64,
-# ) -> npt.NDArray[np.floating]:
-#     """Create transformation matrix from Bernstein to cardinal B-spline basis.
-
-#     Args:
-#         degree (int): Polynomial degree. Must be non-negative.
-#         dtype (np.dtype): Floating point type for the output matrix.
-#             Defaults to np.float64.
-
-#     Returns:
-#         npt.NDArray[np.floating]: (degree+1, degree+1) transformation matrix C such that
-#             C @ [Bernstein values] = [cardinal values].
-
-#     Raises:
-#         ValueError: If degree is negative.
-#     """
-#     if degree < 0:
-#         raise ValueError("Degree must be non-negative")
-
-#     def bernstein(pts):
-#         return evaluate_Bernstein_basis_1D(degree, pts)
-
-#     def cardinal(pts):
-#         return evaluate_cardinal_Bspline_basis_1D(degree, pts)
-
-#     return _create_change_basis_operator(
-#         new_basis_eval=bernstein,
-#         old_basis_eval=cardinal,
-#         n_quad_pts=degree + 1,
-#         dtype=dtype,
-#     )
+    # 5. Solve the system C = G M^T for M^T, which means M = (G^-1 C)^T
+    return np.linalg.solve(G, C).T
 
 
-# def create_cardinal_to_Bernstein_basis_operator(
-#     degree: int,
-#     dtype: np.dtype = np.float64,
-# ) -> npt.NDArray[np.floating]:
-#     """Create transformation matrix from cardinal B-spline to Bernstein basis.
+def create_Bernstein_to_cardinal_basis_operator(
+    degree: int,
+    dtype: npt.DTypeLike = np.float64,
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Create transformation matrix from Bernstein to cardinal B-spline basis.
 
-#     Args:
-#         degree (int): Polynomial degree. Must be non-negative.
-#         dtype (np.dtype): Floating point type for the output matrix.
-#             Defaults to np.float64.
+    Args:
+        degree (int): Polynomial degree. Must be non-negative.
+        dtype (np.dtype): Floating point type for the output matrix.
+            Defaults to np.float64.
 
-#     Returns:
-#         npt.NDArray[np.floating]: (degree+1, degree+1) transformation matrix C such that
-#             C @ [cardinal values] = [Bernstein values].
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: (degree+1, degree+1) transformation matrix C such that
+            C @ [Bernstein values] = [cardinal values].
 
-#     Raises:
-#         ValueError: If degree is negative.
-#     """
-#     if degree < 0:
-#         raise ValueError("Degree must be non-negative")
+    Raises:
+        ValueError: If degree is negative or dtype is not float32 or float64.
+    """
+    if degree < 0:
+        raise ValueError("Degree must be non-negative")
 
-#     def cardinal(pts):
-#         return evaluate_cardinal_Bspline_basis_1D(degree, pts)
+    if dtype not in (np.float32, np.float64):
+        raise ValueError("dtype must be float32 or float64")
 
-#     def bernstein(pts):
-#         return evaluate_Bernstein_basis_1D(degree, pts)
+    def bernstein(
+        pts: npt.NDArray[np.float32 | np.float64],
+    ) -> npt.NDArray[np.float32 | np.float64]:
+        return eval_Bernstein_basis_1D(degree, pts)
 
-#     return _create_change_basis_operator(
-#         new_basis_eval=cardinal,
-#         old_basis_eval=bernstein,
-#         n_quad_pts=degree + 1,
-#         dtype=dtype,
-#     )
+    def cardinal(pts: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32 | np.float64]:
+        return eval_cardinal_Bspline_basis_1D(degree, pts)
+
+    return _create_change_basis_operator(
+        new_basis_eval=bernstein,
+        old_basis_eval=cardinal,
+        n_quad_pts=degree + 1,
+        dtype=dtype,
+    )
+
+
+def create_cardinal_to_Bernstein_basis_operator(
+    degree: int,
+    dtype: npt.DTypeLike = np.float64,
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Create transformation matrix from cardinal B-spline to Bernstein basis.
+
+    Args:
+        degree (int): Polynomial degree. Must be non-negative.
+        dtype (np.dtype): Floating point type for the output matrix.
+            Defaults to np.float64.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: (degree+1, degree+1) transformation matrix C such that
+            C @ [cardinal values] = [Bernstein values].
+
+    Raises:
+        ValueError: If degree is negative or dtype is not float32 or float64.
+    """
+    if degree < 0:
+        raise ValueError("Degree must be non-negative")
+
+    if dtype not in (np.float32, np.float64):
+        raise ValueError("dtype must be float32 or float64")
+
+    def bernstein(
+        pts: npt.NDArray[np.float32 | np.float64],
+    ) -> npt.NDArray[np.float32 | np.float64]:
+        return eval_Bernstein_basis_1D(degree, pts)
+
+    def cardinal(pts: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32 | np.float64]:
+        return eval_cardinal_Bspline_basis_1D(degree, pts)
+
+    return _create_change_basis_operator(
+        new_basis_eval=cardinal,
+        old_basis_eval=bernstein,
+        n_quad_pts=degree + 1,
+        dtype=dtype,
+    )
 
 
 # def create_Bezier_extraction_operators(spline: "Bspline1D") -> FloatArray_32_64:
