@@ -60,7 +60,7 @@ def eval_Bernstein_basis_1D(
     return _eval_Bernstein_basis_1D_impl(degree, pts)
 
 
-def evaluate_cardinal_Bspline_basis_1D(
+def eval_cardinal_Bspline_basis_1D(
     degree: int, pts: npt.ArrayLike
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate the cardinal B-spline basis polynomials of given degree at given points.
@@ -94,7 +94,7 @@ def evaluate_cardinal_Bspline_basis_1D(
         ValueError: If provided degree is negative.
 
     Example:
-        >>> evaluate_cardinal_Bspline_basis(2, [0.0, 0.5, 1.0])
+        >>> eval_cardinal_Bspline_basis_1D(2, [0.0, 0.5, 1.0])
         array([[0.5    , 0.5    , 0.     ],
                [0.125  , 0.75   , 0.125  ],
                [0.03125, 0.6875 , 0.28125],
@@ -104,7 +104,7 @@ def evaluate_cardinal_Bspline_basis_1D(
     return _eval_cardinal_Bspline_basis_1D_impl(degree, pts)
 
 
-def evaluate_Lagrange_basis_1D(
+def eval_Lagrange_basis_1D(
     degree: int, variant: LagrangeVariant, pts: npt.ArrayLike
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate Lagrange basis polynomials at points using the specified variant.

@@ -265,7 +265,7 @@ def _eval_cardinal_Bspline_basis_1D_impl(
         ValueError: If provided degree is negative.
 
     Example:
-        >>> evaluate_cardinal_Bspline_basis(2, [0.0, 0.5, 1.0])
+        >>> eval_cardinal_Bspline_basis_1D(2, [0.0, 0.5, 1.0])
         array([[0.5    , 0.5    , 0.     ],
                [0.125  , 0.75   , 0.125  ],
                [0.03125, 0.6875 , 0.28125],
