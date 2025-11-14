@@ -7,6 +7,7 @@
 """
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
@@ -14,6 +15,9 @@ import numpy.typing as npt
 from ._basis_impl import _get_lagrange_points
 from .basis import LagrangeVariant, eval_Bernstein_basis_1D, eval_cardinal_Bspline_basis_1D
 from .quad import get_gauss_legendre_quadrature_1D
+
+if TYPE_CHECKING:
+    pass
 
 
 def create_Lagrange_to_Bernstein_basis_operator(
@@ -222,80 +226,3 @@ def create_cardinal_to_Bernstein_basis_operator(
         n_quad_pts=degree + 1,
         dtype=dtype,
     )
-
-
-# def create_Bezier_extraction_operators(spline: "Bspline1D") -> FloatArray_32_64:
-#     """Create Bézier extraction operators for a B-spline.
-
-#     Args:
-#         spline (Bspline1D): B-spline object.
-
-#     Returns:
-#         FloatArray_32_64: Array of extraction matrices with shape
-#             (n_intervals, degree+1, degree+1) where each matrix transforms
-#             Bernstein basis functions to B-spline basis functions for that interval.
-
-#             Each matrix C[i, :, :] transforms Bernstein basis functions
-#             to B-spline basis functions for the i-th interval as
-#                 C[i, :, :] @ [Bernstein values] = [B-spline values in interval].
-#     """
-#     return create_bspline_Bezier_extraction_operators_impl(
-#         spline.knots, spline.degree, spline.tolerance
-#     )
-
-
-# def create_Lagrange_extraction_operators(
-#     spline: "Bspline1D",
-#     lagrange_variant: LagrangeVariant = LagrangeVariant.equispaced,
-# ) -> FloatArray_32_64:
-#     """Create Lagrange extraction operators for a B-spline.
-
-#     Args:
-#         spline (Bspline1D): B-spline object.
-#         lagrange_variant (LagrangeVariant): Lagrange point distribution
-#             (e.g., equispaced, GLL, etc). Defaults to LagrangeVariant.equispaced.
-
-#     Returns:
-#         FloatArray_32_64: Array of extraction matrices with shape
-#             (n_intervals, degree+1, degree+1) where each matrix transforms
-#             Lagrange basis functions to B-spline basis functions for that interval.
-
-#             Each matrix C[i, :, :] transforms Bernstein basis functions
-#             to B-spline basis functions for the i-th interval as
-#                 C[i, :, :] @ [Lagrange values] = [B-spline values in interval].
-#     """
-#     if spline.degree < 1:
-#         raise ValueError("Degree must at least 1")
-
-#     C = create_Bezier_extraction_operators(spline)
-#     lagr_to_bzr = create_Lagrange_to_Bernstein_basis_operator(
-#         spline.degree, lagrange_variant, spline.dtype
-#     )
-#     C[:] = C @ lagr_to_bzr
-#     return C
-
-
-# def create_cardinal_extraction_operators(spline: "Bspline1D") -> FloatArray_32_64:
-#     """Create cardinal B-spline extraction operators.
-
-#     For cardinal intervals, the extraction matrix is set to the identity matrix
-
-#     Args:
-#         spline (Bspline1D): B-spline object.
-
-#     Returns:
-#         FloatArray_32_64: Array of extraction matrices with shape
-#             (n_intervals, degree+1, degree+1) where each matrix transforms
-#             cardinal B-spline basis functions to B-spline basis functions for that interval.
-
-#             Each matrix C[i, :, :] transforms cardinal B-spline basis functions
-#             to B-spline basis functions for the i-th interval as
-#                 C[i, :, :] @ [cardinal values] = [B-spline values in interval].
-#     """
-#     C = create_Bezier_extraction_operators(spline)
-#     card_to_bzr = create_cardinal_to_Bernstein_basis_operator(spline.degree, spline.dtype)
-#     C[:] = C @ card_to_bzr
-
-#     for i in np.where(spline.get_cardinal_intervals())[0]:
-#         C[i, :, :] = np.eye(spline.degree + 1, dtype=spline.dtype)
-#     return C
