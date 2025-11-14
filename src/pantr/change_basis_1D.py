@@ -16,7 +16,7 @@ from .basis import LagrangeVariant, eval_Bernstein_basis_1D, eval_cardinal_Bspli
 from .quad import get_gauss_legendre_quadrature_1D
 
 
-def create_Lagrange_to_Bernstein_basis_operator(
+def create_Lagrange_to_Bernstein_change_basis(
     degree: int,
     lagrange_variant: LagrangeVariant = LagrangeVariant.EQUISPACES,
     dtype: npt.DTypeLike = np.float64,
@@ -50,7 +50,7 @@ def create_Lagrange_to_Bernstein_basis_operator(
     return eval_Bernstein_basis_1D(degree, points).T
 
 
-def create_Bernstein_to_Lagrange_basis_operator(
+def create_Bernstein_to_Lagrange_change_basis(
     degree: int,
     lagrange_variant: LagrangeVariant = LagrangeVariant.EQUISPACES,
     dtype: npt.DTypeLike = np.float64,
@@ -81,11 +81,11 @@ def create_Bernstein_to_Lagrange_basis_operator(
     if dtype not in (np.float32, np.float64):
         raise ValueError("dtype must be float32 or float64")
 
-    C = create_Lagrange_to_Bernstein_basis_operator(degree, lagrange_variant, dtype)
+    C = create_Lagrange_to_Bernstein_change_basis(degree, lagrange_variant, dtype)
     return np.linalg.inv(C)
 
 
-def _create_change_basis_operator(
+def _create_change_basis(
     new_basis_eval: Callable[
         [npt.NDArray[np.float32 | np.float64]], npt.NDArray[np.float32 | np.float64]
     ],
@@ -144,7 +144,7 @@ def _create_change_basis_operator(
     return np.linalg.solve(G, C).T
 
 
-def create_Bernstein_to_cardinal_basis_operator(
+def create_Bernstein_to_cardinal_change_basis(
     degree: int,
     dtype: npt.DTypeLike = np.float64,
 ) -> npt.NDArray[np.float32 | np.float64]:
@@ -176,7 +176,7 @@ def create_Bernstein_to_cardinal_basis_operator(
     def cardinal(pts: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32 | np.float64]:
         return eval_cardinal_Bspline_basis_1D(degree, pts)
 
-    return _create_change_basis_operator(
+    return _create_change_basis(
         new_basis_eval=bernstein,
         old_basis_eval=cardinal,
         n_quad_pts=degree + 1,
@@ -184,7 +184,7 @@ def create_Bernstein_to_cardinal_basis_operator(
     )
 
 
-def create_cardinal_to_Bernstein_basis_operator(
+def create_cardinal_to_Bernstein_change_basis(
     degree: int,
     dtype: npt.DTypeLike = np.float64,
 ) -> npt.NDArray[np.float32 | np.float64]:
@@ -216,7 +216,7 @@ def create_cardinal_to_Bernstein_basis_operator(
     def cardinal(pts: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32 | np.float64]:
         return eval_cardinal_Bspline_basis_1D(degree, pts)
 
-    return _create_change_basis_operator(
+    return _create_change_basis(
         new_basis_eval=cardinal,
         old_basis_eval=bernstein,
         n_quad_pts=degree + 1,
