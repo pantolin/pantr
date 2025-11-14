@@ -7,7 +7,7 @@ computations.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -16,6 +16,11 @@ from numba.core import types as nb_types
 
 from ._basis_impl import _eval_Bernstein_basis_1D_impl
 from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
+from .basis import LagrangeVariant
+from .change_basis_1D import (
+    create_cardinal_to_Bernstein_change_basis,
+    create_Lagrange_to_Bernstein_change_basis,
+)
 
 if TYPE_CHECKING:
     from .bspline_1D import Bspline1D
@@ -462,7 +467,7 @@ def _get_cardinal_intervals_impl(
     ],
     cache=True,
 )  # type: ignore[misc]
-def _create_bspline_Bezier_extraction_operators_impl(
+def _create_bspline_Bezier_extraction_impl(
     knots: npt.NDArray[np.float32 | np.float64], degree: int, tol: float
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Create Bézier extraction operators for each interval.
@@ -558,6 +563,89 @@ def _create_bspline_Bezier_extraction_operators_impl(
                 Cs[elem_id + 1, reg - r : reg + 1, reg - r] = C[degree - r : degree + 1, degree]
 
     return Cs
+
+
+def _create_bspline_Lagrange_extraction_impl(
+    knots: npt.NDArray[np.float32 | np.float64],
+    degree: int,
+    tol: float,
+    lagrange_variant: LagrangeVariant = LagrangeVariant.EQUISPACES,
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Create Lagrange extraction operators for a B-spline.
+
+    Args:
+        knots (npt.NDArray[np.float32 | np.float64]): B-spline knot vector.
+        degree (int): B-spline degree.
+        tol (float): Tolerance for numerical comparisons.
+        lagrange_variant (LagrangeVariant): Lagrange point distribution
+            (e.g., equispaced, gauss lobatto legendre, etc). Defaults to LagrangeVariant.EQUISPACES.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Array of extraction matrices with shape
+            (n_intervals, degree+1, degree+1) where each matrix transforms
+            Lagrange basis functions to B-spline basis functions for that interval.
+
+            Each matrix C[i, :, :] transforms Bernstein basis functions
+            to B-spline basis functions for the i-th interval as
+                C[i, :, :] @ [Lagrange values] = [B-spline values in interval].
+    """
+    if tol < 0:
+        raise AssertionError("tol must be positive")
+
+    _check_spline_info(knots, degree)
+
+    C = cast(
+        npt.NDArray[np.float32 | np.float64],
+        _create_bspline_Bezier_extraction_impl(knots, degree, tol),
+    )
+
+    dtype = knots.dtype
+    lagr_to_bzr = create_Lagrange_to_Bernstein_change_basis(degree, lagrange_variant, dtype)
+    C[:] = C @ lagr_to_bzr
+
+    return C
+
+
+def _create_bspline_cardinal_extraction_impl(
+    knots: npt.NDArray[np.float32 | np.float64],
+    degree: int,
+    tol: float,
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Create cardinal B-spline extraction operators.
+
+    For cardinal intervals, the extraction matrix is set to the identity matrix
+
+    Args:
+        knots (npt.NDArray[np.float32 | np.float64]): B-spline knot vector.
+        degree (int): B-spline degree.
+        tol (float): Tolerance for numerical comparisons.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Array of extraction matrices with shape
+            (n_intervals, degree+1, degree+1) where each matrix transforms
+            cardinal B-spline basis functions to B-spline basis functions for that interval.
+
+            Each matrix C[i, :, :] transforms cardinal B-spline basis functions
+            to B-spline basis functions for the i-th interval as
+                C[i, :, :] @ [cardinal values] = [B-spline values in interval].
+    """
+    if tol < 0:
+        raise AssertionError("tol must be positive")
+
+    _check_spline_info(knots, degree)
+
+    C = cast(
+        npt.NDArray[np.float32 | np.float64],
+        _create_bspline_Bezier_extraction_impl(knots, degree, tol),
+    )
+
+    dtype = knots.dtype
+    card_to_bzr = create_cardinal_to_Bernstein_change_basis(degree, dtype)
+    C[:] = C @ card_to_bzr
+
+    for i in np.where(_get_cardinal_intervals_impl(knots, degree, tol))[0]:
+        C[i, :, :] = np.eye(degree + 1, dtype=dtype)
+    return C
 
 
 def _eval_Bspline_basis_Bernstein_like_1D(

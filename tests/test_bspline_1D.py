@@ -6,7 +6,7 @@ import pytest
 from pantr._bspline_1D_impl import (
     _check_spline_info,
     _compute_num_basis_impl,
-    _create_bspline_Bezier_extraction_operators_impl,
+    _create_bspline_Bezier_extraction_impl,
     _eval_basis_Cox_de_Boor_impl,
     _eval_Bspline_basis_Bernstein_like_1D,
     _get_cardinal_intervals_impl,
@@ -751,7 +751,7 @@ class TestCreateBsplineBezierExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_Bezier_extraction_operators_impl(knots, degree, tol)
+        result = _create_bspline_Bezier_extraction_impl(knots, degree, tol)
 
         # Should have 1 interval, 3x3 extraction matrix
         assert result.shape == (1, 3, 3)
@@ -764,7 +764,7 @@ class TestCreateBsplineBezierExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_Bezier_extraction_operators_impl(knots, degree, tol)
+        result = _create_bspline_Bezier_extraction_impl(knots, degree, tol)
 
         # Should have 2 intervals, 3x3 extraction matrices
         assert result.shape == (2, 3, 3)
@@ -778,7 +778,7 @@ class TestCreateBsplineBezierExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         with pytest.raises(AssertionError, match="tol must be positive"):
-            _create_bspline_Bezier_extraction_operators_impl(knots, degree, -1.0)
+            _create_bspline_Bezier_extraction_impl(knots, degree, -1.0)
 
 
 class TestAdditionalEdgeCases:
@@ -812,7 +812,7 @@ class TestAdditionalEdgeCases:
         knots = np.array([0.0, 0.1, 0.1, 0.5, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        Cs = _create_bspline_Bezier_extraction_operators_impl(knots, degree, tol)
+        Cs = _create_bspline_Bezier_extraction_impl(knots, degree, tol)
         # Shape sanity
         assert Cs.shape[1:] == (degree + 1, degree + 1)
         # The first element matrix should be modified from identity when mult < degree+1
@@ -893,7 +893,7 @@ class TestBspline1DCoverageTargets:
         """Cover branch where first-domain multiplicity == 1 (degree=2 => reg=1)."""
         # degree=2, first three knots are all different so multiplicity at index 2 is 1
         knots = np.array([0.0, 0.1, 0.2, 0.6, 1.0, 1.0], dtype=np.float64)
-        Cs = _create_bspline_Bezier_extraction_operators_impl(knots, 2, 1e-10)
+        Cs = _create_bspline_Bezier_extraction_impl(knots, 2, 1e-10)
         # At least one coefficient in the first extraction matrix should differ from identity
         assert Cs.shape[1:] == (3, 3)
         assert not np.allclose(Cs[0], np.eye(3))
