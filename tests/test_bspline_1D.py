@@ -428,24 +428,24 @@ class TestAssertSplineInfo:
         _check_spline_info(knots, degree)
 
     def test_invalid_degree(self) -> None:
-        """Test that negative degree raises AssertionError."""
+        """Test that negative degree raises ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = -1
-        with pytest.raises(AssertionError, match="degree must be non-negative"):
+        with pytest.raises(ValueError, match="degree must be non-negative"):
             _check_spline_info(knots, degree)
 
     def test_insufficient_knots(self) -> None:
-        """Test that insufficient knots raise AssertionError."""
+        """Test that insufficient knots raise ValueError."""
         knots = np.array([0.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="knots must have at least"):
+        with pytest.raises(ValueError, match="knots must have at least"):
             _check_spline_info(knots, degree)
 
     def test_non_decreasing_knots(self) -> None:
-        """Test that non-decreasing knots raise AssertionError."""
+        """Test that non-decreasing knots raise ValueError."""
         knots = np.array([0.0, 1.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="knots must be non-decreasing"):
+        with pytest.raises(ValueError, match="knots must be non-decreasing"):
             _check_spline_info(knots, degree)
 
 
@@ -470,10 +470,10 @@ class TestGetMultiplicityOfFirstKnotInDomain:
         assert result == 1  # First knot in domain (index 2) has multiplicity 1
 
     def test_negative_tolerance_error(self) -> None:
-        """Test that negative tolerance raises AssertionError."""
+        """Test that negative tolerance raises ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="tol must be positive"):
+        with pytest.raises(ValueError, match="tol must be positive"):
             _get_multiplicity_of_first_knot_in_domain_impl(knots, degree, -1.0)
 
 
@@ -520,10 +520,10 @@ class TestGetUniqueKnotsAndMultiplicity:
         np.testing.assert_array_equal(multiplicities, expected_mults)
 
     def test_negative_tolerance_error(self) -> None:
-        """Negative tolerance should raise AssertionError."""
+        """Negative tolerance should raise ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="tol must be positive"):
+        with pytest.raises(ValueError, match="tol must be positive"):
             _get_unique_knots_and_multiplicity_impl(knots, degree, -1.0, in_domain=True)
 
 
@@ -558,12 +558,12 @@ class TestIsInDomain:
         np.testing.assert_array_equal(result, [True, True])
 
     def test_empty_points_array(self) -> None:
-        """Test that empty points array raises AssertionError."""
+        """Test that empty points array raises ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         pts = np.array([], dtype=np.float64)
         tol = 1e-10
-        with pytest.raises(AssertionError, match="pts must have at least one element"):
+        with pytest.raises(ValueError, match="pts must have at least one element"):
             _is_in_domain_impl(knots, degree, pts, tol)
 
 
@@ -595,10 +595,10 @@ class TestComputeNumBasis:
         assert result == 2  # noqa: PLR2004
 
     def test_negative_tolerance_error(self) -> None:
-        """Test that negative tolerance raises AssertionError."""
+        """Test that negative tolerance raises ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="tol must be positive"):
+        with pytest.raises(ValueError, match="tol must be positive"):
             _compute_num_basis_impl(knots, degree, False, -1.0)
 
 
@@ -630,10 +630,10 @@ class TestGetLastKnotSmallerEqual:
         np.testing.assert_array_equal(result, expected)
 
     def test_non_decreasing_knots_error(self) -> None:
-        """Test that non-decreasing knots raise AssertionError."""
+        """Test that non-decreasing knots raise ValueError."""
         knots = np.array([0.0, 1.0, 0.5, 2.0], dtype=np.float64)
         pts = np.array([0.5], dtype=np.float64)
-        with pytest.raises(AssertionError, match="knots must be non-decreasing"):
+        with pytest.raises(ValueError, match="knots must be non-decreasing"):
             _get_last_knot_smaller_equal_impl(knots, pts)
 
 
@@ -695,14 +695,14 @@ class TestEvaluateBasisCoxDeBoor:
         np.testing.assert_array_almost_equal(sums, np.ones_like(sums))
 
     def test_outside_domain_error(self) -> None:
-        """Test that points outside domain raise AssertionError."""
+        """Test that points outside domain raise ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         periodic = False
         tol = 1e-10
         pts = np.array([-0.1], dtype=np.float64)
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
 
 
@@ -774,10 +774,10 @@ class TestCreateBsplineBezierExtractionOperators:
         assert not np.allclose(result[1], np.eye(3))
 
     def test_negative_tolerance_error(self) -> None:
-        """Test that negative tolerance raises AssertionError."""
+        """Test that negative tolerance raises ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="tol must be positive"):
+        with pytest.raises(ValueError, match="tol must be positive"):
             _create_bspline_Bezier_extraction_impl(knots, degree, -1.0)
 
 
@@ -788,12 +788,12 @@ class TestAdditionalEdgeCases:
         """_is_in_domain_impl raises for negative tol."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="tol must be positive"):
+        with pytest.raises(ValueError, match="tol must be positive"):
             _is_in_domain_impl(knots, degree, np.array([0.0, 0.5]), -1.0)
 
     def test_get_last_knot_smaller_equal_empty_pts(self) -> None:
         """_get_last_knot_smaller_equal_impl empty pts raise."""
-        with pytest.raises(AssertionError, match="pts must have at least one element"):
+        with pytest.raises(ValueError, match="pts must have at least one element"):
             _get_last_knot_smaller_equal_impl(np.array([0.0, 1.0]), np.array([], dtype=float))
 
     def test_eval_basis_cox_de_boor_input_errors(self) -> None:
@@ -801,9 +801,9 @@ class TestAdditionalEdgeCases:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         periodic = False
-        with pytest.raises(AssertionError, match="tol must be positive"):
+        with pytest.raises(ValueError, match="tol must be positive"):
             _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, -1.0, np.array([0.5]))
-        with pytest.raises(AssertionError, match="pts must have at least one element"):
+        with pytest.raises(ValueError, match="pts must have at least one element"):
             _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, 1e-10, np.array([], dtype=float))
 
     def test_extraction_non_open_left_end_branch(self) -> None:
@@ -853,7 +853,7 @@ class TestAdditionalEdgeCases:
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
         spline = Bspline1D(knots, degree)
-        with pytest.raises(AssertionError, match="B-spline does not have Bézier-like knots"):
+        with pytest.raises(ValueError, match="B-spline does not have Bézier-like knots"):
             _eval_Bspline_basis_Bernstein_like_1D(spline, np.array([0.0, 0.5, 1.0]))
 
 
