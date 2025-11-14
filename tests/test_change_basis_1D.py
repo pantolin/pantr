@@ -1,6 +1,7 @@
 """Tests for change_basis_1D module."""
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
 from pantr.basis import (
@@ -10,11 +11,33 @@ from pantr.basis import (
     eval_Lagrange_basis_1D,
 )
 from pantr.change_basis_1D import (
+    _create_change_basis,
     create_Bernstein_to_cardinal_change_basis,
     create_Bernstein_to_Lagrange_change_basis,
     create_cardinal_to_Bernstein_change_basis,
     create_Lagrange_to_Bernstein_change_basis,
 )
+
+
+class TestLagrangeToBernsteinBasisOperator:
+    """Test the create_Lagrange_to_Bernstein_change_basis function."""
+
+    def test_degree_zero_error(self) -> None:
+        """Test that degree lower than 1 raises ValueError."""
+        with pytest.raises(ValueError, match="Degree must at least 1"):
+            create_Lagrange_to_Bernstein_change_basis(0)
+
+    def test_negative_degree_error(self) -> None:
+        """Test that negative degree raises ValueError."""
+        with pytest.raises(ValueError, match="Degree must at least 1"):
+            create_Lagrange_to_Bernstein_change_basis(-1)
+
+    def test_invalid_dtype_error(self) -> None:
+        """Test that invalid dtype raises ValueError."""
+        with pytest.raises(ValueError, match="dtype must be float32 or float64"):
+            create_Lagrange_to_Bernstein_change_basis(2, dtype=np.int32)
+        with pytest.raises(ValueError, match="dtype must be float32 or float64"):
+            create_Lagrange_to_Bernstein_change_basis(2, dtype=np.float16)
 
 
 class TestBernsteinToLagrangeBasisOperator:
@@ -29,6 +52,13 @@ class TestBernsteinToLagrangeBasisOperator:
         """Test that negative degree raises ValueError."""
         with pytest.raises(ValueError, match="Degree must at least 1"):
             create_Bernstein_to_Lagrange_change_basis(-1)
+
+    def test_invalid_dtype_error(self) -> None:
+        """Test that invalid dtype raises ValueError."""
+        with pytest.raises(ValueError, match="dtype must be float32 or float64"):
+            create_Bernstein_to_Lagrange_change_basis(2, dtype=np.int32)
+        with pytest.raises(ValueError, match="dtype must be float32 or float64"):
+            create_Bernstein_to_Lagrange_change_basis(2, dtype=np.float16)
 
     def test_inverse_relationship(self) -> None:
         """Test that Bernstein to Lagrange is inverse of Lagrange to Bernstein."""
@@ -87,6 +117,17 @@ class TestCardinalToBernsteinBasisOperator:
         with pytest.raises(ValueError, match="Degree must be non-negative"):
             create_Bernstein_to_cardinal_change_basis(-1)
 
+    def test_invalid_dtype_error(self) -> None:
+        """Test that invalid dtype raises ValueError."""
+        with pytest.raises(ValueError, match="dtype must be float32 or float64"):
+            create_Bernstein_to_cardinal_change_basis(2, dtype=np.int32)
+        with pytest.raises(ValueError, match="dtype must be float32 or float64"):
+            create_Bernstein_to_cardinal_change_basis(2, dtype=np.float16)
+        with pytest.raises(ValueError, match="dtype must be float32 or float64"):
+            create_cardinal_to_Bernstein_change_basis(2, dtype=np.int32)
+        with pytest.raises(ValueError, match="dtype must be float32 or float64"):
+            create_cardinal_to_Bernstein_change_basis(2, dtype=np.float16)
+
     def test_values(self) -> None:
         """Test that cardinal evaluations transformed with operator return Bernstein evaluations."""
         for degree in [1, 2, 3, 4]:
@@ -100,3 +141,47 @@ class TestCardinalToBernsteinBasisOperator:
 
             C_inv = create_Bernstein_to_cardinal_change_basis(degree)
             np.testing.assert_array_almost_equal(cardinals, bernsteins @ C_inv.T)
+
+
+class TestCreateChangeBasis:
+    """Test the _create_change_basis private function."""
+
+    def test_invalid_n_quad_pts_error(self) -> None:
+        """Test that non-positive n_quad_pts raises ValueError."""
+        degree = 2
+
+        def bernstein(
+            pts: npt.NDArray[np.float32 | np.float64],
+        ) -> npt.NDArray[np.float32 | np.float64]:
+            return eval_Bernstein_basis_1D(degree, pts)
+
+        def cardinal(
+            pts: npt.NDArray[np.float32 | np.float64],
+        ) -> npt.NDArray[np.float32 | np.float64]:
+            return eval_cardinal_Bspline_basis_1D(degree, pts)
+
+        with pytest.raises(ValueError, match="Number of quadrature points must be positive"):
+            _create_change_basis(bernstein, cardinal, n_quad_pts=0)
+
+        with pytest.raises(ValueError, match="Number of quadrature points must be positive"):
+            _create_change_basis(bernstein, cardinal, n_quad_pts=-1)
+
+    def test_invalid_dtype_error(self) -> None:
+        """Test that invalid dtype raises ValueError."""
+        degree = 2
+
+        def bernstein(
+            pts: npt.NDArray[np.float32 | np.float64],
+        ) -> npt.NDArray[np.float32 | np.float64]:
+            return eval_Bernstein_basis_1D(degree, pts)
+
+        def cardinal(
+            pts: npt.NDArray[np.float32 | np.float64],
+        ) -> npt.NDArray[np.float32 | np.float64]:
+            return eval_cardinal_Bspline_basis_1D(degree, pts)
+
+        with pytest.raises(ValueError, match="dtype must be float32 or float64"):
+            _create_change_basis(bernstein, cardinal, n_quad_pts=3, dtype=np.int32)
+
+        with pytest.raises(ValueError, match="dtype must be float32 or float64"):
+            _create_change_basis(bernstein, cardinal, n_quad_pts=3, dtype=np.float16)
