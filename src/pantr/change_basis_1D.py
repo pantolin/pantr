@@ -7,7 +7,6 @@
 """
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
 
 import numpy as np
 import numpy.typing as npt
@@ -15,9 +14,6 @@ import numpy.typing as npt
 from ._basis_impl import _get_lagrange_points
 from .basis import LagrangeVariant, eval_Bernstein_basis_1D, eval_cardinal_Bspline_basis_1D
 from .quad import get_gauss_legendre_quadrature_1D
-
-if TYPE_CHECKING:
-    pass
 
 
 def create_Lagrange_to_Bernstein_basis_operator(
