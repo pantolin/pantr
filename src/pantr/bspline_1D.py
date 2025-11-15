@@ -1,4 +1,4 @@
-"""Bspline1D utilities for open, floating, and periodic knot vectors."""
+"""BsplineSpace1D utilities for open, floating, and periodic knot vectors."""
 
 import functools
 from typing import cast
@@ -259,7 +259,7 @@ def _cached_unique_knots_and_multiplicity(
     )
 
 
-class Bspline1D:
+class BsplineSpace1D:
     """A class representing a 1D B-spline with configurable degree and knot vector.
 
     This class provides methods to analyze B-spline properties, validate input
@@ -300,13 +300,13 @@ class Bspline1D:
                 knots are not non-decreasing.
             TypeError: If knots cannot be converted to a numpy array.
         """
-        Bspline1D._validate_input(knots, degree, periodic)
+        BsplineSpace1D._validate_input(knots, degree, periodic)
 
         self._knots = np.asarray(knots)
         if np.issubdtype(self._knots.dtype, np.integer):
             self._knots = self._knots.astype(np.float64)
 
-        self._tol = Bspline1D._create_tolerance(self.dtype)
+        self._tol = BsplineSpace1D._create_tolerance(self.dtype)
 
         self._degree = int(degree)
         self._periodic = bool(periodic)
@@ -344,7 +344,7 @@ class Bspline1D:
             knots = knots.astype(np.float64)
 
         dtype = knots.dtype
-        tol = Bspline1D._create_tolerance(dtype)
+        tol = BsplineSpace1D._create_tolerance(dtype)
 
         if not isinstance(knots, np.ndarray) or knots.ndim != 1:
             raise TypeError("knots must be a 1D numpy array or Python list")
@@ -482,7 +482,7 @@ class Bspline1D:
             np.int_: Number of intervals.
 
         Example:
-            >>> bspline = Bspline1D([0, 0, 0, 1, 2, 2, 2], 2)
+            >>> bspline = BsplineSpace1D([0, 0, 0, 1, 2, 2, 2], 2)
             >>> bspline.get_num_intervals
             2
         """
@@ -508,7 +508,7 @@ class Bspline1D:
             (start_value, end_value) defining the domain.
 
         Example:
-            >>> bspline = Bspline1D([0, 0, 0, 1, 2, 2, 2], 2)
+            >>> bspline = BsplineSpace1D([0, 0, 0, 1, 2, 2, 2], 2)
             >>> bspline.domain
             (0.0, 2.0)
         """
@@ -562,7 +562,7 @@ class Bspline1D:
             bool: True if knots have open ends and only one span.
 
         Example:
-            >>> bspline = Bspline1D([1, 1, 1, 3, 3, 3], 2)
+            >>> bspline = BsplineSpace1D([1, 1, 1, 3, 3, 3], 2)
             >>> bspline.has_Bezier_like_knots()
             True
         """
@@ -584,15 +584,15 @@ class Bspline1D:
                 It has length equal to the number of intervals.
 
         Example:
-            >>> bspline = Bspline1D([0, 0, 0, 1, 2, 3, 4, 5, 6, 6, 6], 2)
+            >>> bspline = BsplineSpace1D([0, 0, 0, 1, 2, 3, 4, 5, 6, 6, 6], 2)
             >>> bspline.get_cardinal_intervals()
             array([False, False, True, True, False, False])
 
-            >>> bspline = Bspline1D([0, 0, 0, 1, 2, 3, 4, 5, 5, 6, 6, 6], 2)
+            >>> bspline = BsplineSpace1D([0, 0, 0, 1, 2, 3, 4, 5, 5, 6, 6, 6], 2)
             >>> bspline.get_cardinal_intervals()
             array([False, False, True, False, False, False])
 
-            >>> bspline = Bspline1D([0, 1, 2, 3, 4, 5, 6, 7, 10], 3)
+            >>> bspline = BsplineSpace1D([0, 1, 2, 3, 4, 5, 6, 7, 10], 3)
             >>> bspline.get_cardinal_intervals()
             array([True, False])
         """
@@ -626,7 +626,7 @@ class Bspline1D:
                 ValueError: If any evaluation points are outside the B-spline domain.
 
         Example:
-            >>> bspline = Bspline1D([0, 0, 0, 0.25, 0.7, 0.7, 1, 1, 1], 2)
+            >>> bspline = BsplineSpace1D([0, 0, 0, 0.25, 0.7, 0.7, 1, 1, 1], 2)
             >>> bspline.eval_basis([0.0, 0.5, 0.75, 1.0])
             (array([[1.        , 0.        , 0.        ],
                     [0.12698413, 0.5643739 , 0.30864198],

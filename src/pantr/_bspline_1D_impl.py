@@ -23,7 +23,7 @@ from .change_basis_1D import (
 )
 
 if TYPE_CHECKING:
-    from .bspline_1D import Bspline1D
+    from .bspline_1D import BsplineSpace1D
 
 nb_Tuple = nb_types.Tuple
 nb_bool = nb_types.boolean
@@ -649,7 +649,7 @@ def _create_bspline_cardinal_extraction_impl(
 
 
 def _eval_Bspline_basis_Bernstein_like_1D(
-    spline: Bspline1D,
+    spline: BsplineSpace1D,
     pts: npt.NDArray[np.float32 | np.float64],
 ) -> tuple[npt.NDArray[np.float32 | np.float64], npt.NDArray[np.int_]]:
     """Evaluate B-spline basis functions when they reduce to Bernstein polynomials.
@@ -658,7 +658,7 @@ def _eval_Bspline_basis_Bernstein_like_1D(
     direct evaluation using Bernstein basis functions.
 
     Args:
-        spline (Bspline1D): B-spline object with Bézier-like knots.
+        spline (BsplineSpace1D): B-spline object with Bézier-like knots.
         pts (npt.NDArray[np.float32 | np.float64]): Evaluation points.
 
     Returns:
@@ -685,7 +685,7 @@ def _eval_Bspline_basis_Bernstein_like_1D(
 
 
 def _eval_Bspline_basis_1D_impl(
-    spline: Bspline1D, pts: npt.ArrayLike
+    spline: BsplineSpace1D, pts: npt.ArrayLike
 ) -> tuple[npt.NDArray[np.float32 | np.float64], npt.NDArray[np.int_]]:
     """Evaluate B-spline basis functions at given points.
 
@@ -696,7 +696,7 @@ def _eval_Bspline_basis_1D_impl(
     In both cases it calls vectorized or numba implementations.
 
     Args:
-        spline (Bspline1D): B-spline object defining the basis.
+        spline (BsplineSpace1D): B-spline object defining the basis.
         pts (npt.ArrayLike): Evaluation points.
 
     Returns:
@@ -715,7 +715,7 @@ def _eval_Bspline_basis_1D_impl(
         ValueError: If any evaluation points are outside the B-spline domain.
 
     Example:
-        >>> bspline = Bspline1D([0, 0, 0, 0.25, 0.7, 0.7, 1, 1, 1], 2)
+        >>> bspline = BsplineSpace1D([0, 0, 0, 0.25, 0.7, 0.7, 1, 1, 1], 2)
         >>> _eval_Bspline_basis_1D_impl(bspline, [0.0, 0.5, 0.75, 1.0])
         (array([[1.        , 0.        , 0.        ],
                 [0.12698413, 0.5643739 , 0.30864198],
