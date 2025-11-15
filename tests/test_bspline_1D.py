@@ -26,7 +26,7 @@ from pantr.basis import (
     eval_Lagrange_basis_1D,
 )
 from pantr.bspline_1D import (
-    Bspline1D,
+    BsplineSpace1D,
     create_cardinal_Bspline_knot_vector,
     create_uniform_open_knot_vector,
     create_uniform_periodic_knot_vector,
@@ -34,34 +34,34 @@ from pantr.bspline_1D import (
 from pantr.tolerance import get_strict_tolerance
 
 
-class TestBspline1DInit:
-    """Test Bspline1D initialization."""
+class TestBsplineSpace1DInit:
+    """Test BsplineSpace1D initialization."""
 
     def test_valid_initialization(self) -> None:
-        """Test valid Bspline1D initialization."""
+        """Test valid BsplineSpace1D initialization."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
 
         assert spline.degree == 2  # noqa: PLR2004
         assert spline.periodic is False
         np.testing.assert_array_equal(spline.knots, np.array(knots))
 
     def test_zero_degree_initialization(self) -> None:
-        """Test valid Bspline1D initialization."""
+        """Test valid BsplineSpace1D initialization."""
         knots = [0.0, 1.0]
         degree = 0
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
 
         assert spline.degree == 0
         assert spline.periodic is False
         np.testing.assert_array_equal(spline.knots, np.array(knots))
 
     def test_periodic_initialization(self) -> None:
-        """Test periodic Bspline1D initialization."""
+        """Test periodic BsplineSpace1D initialization."""
         knots = create_uniform_periodic_knot_vector(num_intervals=3, degree=2, domain=(0.0, 1.0))
         degree = 2
-        spline = Bspline1D(knots, degree, periodic=True)
+        spline = BsplineSpace1D(knots, degree, periodic=True)
 
         assert spline.degree == 2  # noqa: PLR2004
         assert spline.periodic is True
@@ -70,7 +70,7 @@ class TestBspline1DInit:
         """Test that integer knots are converted to float64."""
         knots = [0, 0, 0, 1, 1, 1]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
 
         assert spline.dtype == np.float64
         np.testing.assert_array_equal(spline.knots, np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0]))
@@ -79,19 +79,19 @@ class TestBspline1DInit:
         """Test that negative degree raises ValueError."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         with pytest.raises(ValueError, match="degree must be non-negative"):
-            Bspline1D(knots, -1)
+            BsplineSpace1D(knots, -1)
 
     def test_insufficient_knots_error(self) -> None:
         """Test that insufficient knots raise ValueError."""
         knots = [0.0, 1.0]
         with pytest.raises(ValueError, match="knots must have at least"):
-            Bspline1D(knots, 2)
+            BsplineSpace1D(knots, 2)
 
     def test_non_decreasing_knots_error(self) -> None:
         """Test that non-decreasing knots raise ValueError."""
         knots = [0.0, 1.0, 0.5, 1.0, 1.0, 1.0]
         with pytest.raises(ValueError, match="knots must be non-decreasing"):
-            Bspline1D(knots, 2)
+            BsplineSpace1D(knots, 2)
 
     def test_invalid_knot_type_error(self) -> None:
         """Test that invalid knot type raises TypeError."""
@@ -100,66 +100,66 @@ class TestBspline1DInit:
             (TypeError, ValueError),
             match=r"knots must be a 1D numpy array or Python list|knots type must be float",
         ):
-            Bspline1D(knots, 2)
+            BsplineSpace1D(knots, 2)
 
     def test_snap_knots_disabled(self) -> None:
         """Test initialization with snap_knots disabled."""
         tol = get_strict_tolerance(np.float64)
         knots = [0.0, 0.0, 0.0 + tol, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree, snap_knots=False)
+        spline = BsplineSpace1D(knots, degree, snap_knots=False)
 
         # Knots should remain unchanged
         np.testing.assert_array_equal(spline.knots, np.array(knots))
 
 
-class TestBspline1DProperties:
-    """Test Bspline1D properties."""
+class TestBsplineSpace1DProperties:
+    """Test BsplineSpace1D properties."""
 
     def test_degree_property(self) -> None:
         """Test degree property."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert spline.degree == degree
 
     def test_knots_property(self) -> None:
         """Test knots property."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         np.testing.assert_array_equal(spline.knots, np.array(knots))
 
     def test_periodic_property(self) -> None:
         """Test periodic property."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree, periodic=True)
+        spline = BsplineSpace1D(knots, degree, periodic=True)
         assert spline.periodic is True
 
     def test_tolerance_property(self) -> None:
         """Test tolerance property."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert spline.tolerance > 0
 
     def test_dtype_property(self) -> None:
         """Test dtype property."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert spline.dtype == np.float64
 
 
-class TestBspline1DMethods:
-    """Test Bspline1D methods."""
+class TestBsplineSpace1DMethods:
+    """Test BsplineSpace1D methods."""
 
     def test_get_num_basis_non_periodic(self) -> None:
         """Test get_num_basis for non-periodic spline."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert spline.num_basis == 3  # noqa: PLR2004
 
     def test_get_num_basis_periodic(self) -> None:
@@ -168,7 +168,7 @@ class TestBspline1DMethods:
         knots = create_uniform_periodic_knot_vector(
             num_intervals=3, degree=degree, domain=(0.0, 1.0)
         )
-        spline = Bspline1D(knots, degree, periodic=True)
+        spline = BsplineSpace1D(knots, degree, periodic=True)
         # For periodic splines, the number of basis functions is reduced
         assert spline.num_basis == 3  # noqa: PLR2004
 
@@ -176,7 +176,7 @@ class TestBspline1DMethods:
         """Test _get_unique_knots_and_multiplicity for full knot vector."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         unique_knots, multiplicities = spline.get_unique_knots_and_multiplicity(in_domain=False)
 
         expected_unique = np.array([0.0, 1.0])
@@ -188,7 +188,7 @@ class TestBspline1DMethods:
         """Test _get_unique_knots_and_multiplicity for domain only."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         unique_knots, multiplicities = spline.get_unique_knots_and_multiplicity(in_domain=True)
 
         expected_unique = np.array([0.0, 1.0])
@@ -201,14 +201,14 @@ class TestBspline1DMethods:
         num_intervals = 2
         degree = 2
         knots = create_uniform_open_knot_vector(num_intervals, degree)
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert spline.num_intervals == num_intervals
 
     def test_get_domain(self) -> None:
         """Test get_domain method."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         domain = spline.domain
         np.testing.assert_allclose(domain, (knots[degree], knots[-degree - 1]))
 
@@ -216,56 +216,56 @@ class TestBspline1DMethods:
         """Test has_left_end_open returns True for open left end."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert spline.has_left_end_open() is True
 
     def test_has_left_end_open_false(self) -> None:
         """Test has_left_end_open returns False for non-open left end."""
         knots = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert spline.has_left_end_open() is False
 
     def test_has_right_end_open_true(self) -> None:
         """Test has_right_end_open returns True for open right end."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert spline.has_right_end_open() is True
 
     def test_has_right_end_open_false(self) -> None:
         """Test has_right_end_open returns False for non-open right end."""
         knots = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert spline.has_right_end_open() is False
 
     def test_has_open_knots_true(self) -> None:
         """Test has_open_knots returns True when both ends are open."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert spline.has_open_knots() is True
 
     def test_has_open_knots_false(self) -> None:
         """Test has_open_knots returns False when ends are not open."""
         knots = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert spline.has_open_knots() is False
 
     def test_has_Bezier_like_knots_true(self) -> None:
         """Test has_Bezier_like_knots returns True for Bézier-like configuration."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert bool(spline.has_Bezier_like_knots()) is True
 
     def test_has_Bezier_like_knots_false(self) -> None:
         """Test has_Bezier_like_knots returns False for non-Bézier-like configuration."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         assert bool(spline.has_Bezier_like_knots()) is False
 
     def test_has_Bezier_like_knots_periodic_false(self) -> None:
@@ -275,14 +275,14 @@ class TestBspline1DMethods:
         knots = create_uniform_periodic_knot_vector(
             num_intervals=3, degree=degree, domain=(0.0, 1.0)
         )
-        spline = Bspline1D(knots, degree, periodic=True)
+        spline = BsplineSpace1D(knots, degree, periodic=True)
         assert bool(spline.has_Bezier_like_knots()) is False
 
     def test_get_cardinal_intervals(self) -> None:
         """Test get_cardinal_intervals method."""
         knots = [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         result = spline.get_cardinal_intervals()
 
         # Should have 4 intervals, middle ones should be cardinal
@@ -290,14 +290,14 @@ class TestBspline1DMethods:
         np.testing.assert_array_equal(result, expected)
 
 
-class TestBspline1DWithKnotGenerators:
-    """Test Bspline1D with knot vector generators."""
+class TestBsplineSpace1DWithKnotGenerators:
+    """Test BsplineSpace1D with knot vector generators."""
 
     def test_with_uniform_open_knot_vector(self) -> None:
-        """Test Bspline1D with uniform open knot vector."""
+        """Test BsplineSpace1D with uniform open knot vector."""
         knots = create_uniform_open_knot_vector(num_intervals=2, degree=2, domain=(0.0, 1.0))
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
 
         assert spline.degree == degree
         assert spline.periodic is False
@@ -305,78 +305,78 @@ class TestBspline1DWithKnotGenerators:
         assert spline.domain == (knots[degree], knots[-degree - 1])
 
     def test_with_uniform_periodic_knot_vector(self) -> None:
-        """Test Bspline1D with uniform periodic knot vector."""
+        """Test BsplineSpace1D with uniform periodic knot vector."""
         degree = 2
         knots = create_uniform_periodic_knot_vector(
             num_intervals=3, degree=degree, domain=(0.0, 1.0)
         )
-        spline = Bspline1D(knots, degree, periodic=True)
+        spline = BsplineSpace1D(knots, degree, periodic=True)
 
         assert spline.degree == degree
         assert spline.periodic is True
         assert spline.domain == (knots[degree], knots[-degree - 1])
 
     def test_with_cardinal_bspline_knot_vector(self) -> None:
-        """Test Bspline1D with cardinal B-spline knot vector."""
+        """Test BsplineSpace1D with cardinal B-spline knot vector."""
         degree = 2
         knots = create_cardinal_Bspline_knot_vector(2, degree)
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
 
         assert spline.degree == degree
         assert spline.periodic is False
         assert spline.domain == (knots[degree], knots[-degree - 1])
 
 
-class TestBspline1DEdgeCases:
-    """Test Bspline1D edge cases."""
+class TestBsplineSpace1DEdgeCases:
+    """Test BsplineSpace1D edge cases."""
 
     def test_degree_zero(self) -> None:
-        """Test Bspline1D with degree 0."""
+        """Test BsplineSpace1D with degree 0."""
         knots = [0.0, 1.0]
         degree = 0
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
 
         assert spline.degree == degree
         assert spline.num_basis == 1
         np.testing.assert_allclose(spline.domain, (knots[degree], knots[-degree - 1]))
 
     def test_single_interval(self) -> None:
-        """Test Bspline1D with single interval."""
+        """Test BsplineSpace1D with single interval."""
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
 
         assert spline.num_intervals == 1
         assert bool(spline.has_Bezier_like_knots()) is True
 
     def test_high_degree(self) -> None:
-        """Test Bspline1D with high degree."""
+        """Test BsplineSpace1D with high degree."""
         degree = 5
         knots = [0.0] * (degree + 1) + [1.0] * (degree + 1)
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
 
         assert spline.degree == degree
         assert spline.num_basis == (degree + 1)
         assert bool(spline.has_Bezier_like_knots()) is True
 
     def test_float32_precision(self) -> None:
-        """Test Bspline1D with float32 precision."""
+        """Test BsplineSpace1D with float32 precision."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float32)
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
 
         assert spline.dtype == np.float32
         assert spline.tolerance > 0
 
 
-class TestBspline1DIntegration:
-    """Integration tests for Bspline1D."""
+class TestBsplineSpace1DIntegration:
+    """Integration tests for BsplineSpace1D."""
 
     def test_consistency_across_methods(self) -> None:
-        """Test consistency across different Bspline1D methods."""
+        """Test consistency across different BsplineSpace1D methods."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
 
         # Test that domain indices are consistent
         domain = spline.domain
@@ -400,8 +400,8 @@ class TestBspline1DIntegration:
             num_intervals=3, degree=degree, domain=(0.0, 1.0)
         )
 
-        spline_open = Bspline1D(knots_open, degree, periodic=False)
-        spline_periodic = Bspline1D(knots_periodic, degree, periodic=True)
+        spline_open = BsplineSpace1D(knots_open, degree, periodic=False)
+        spline_periodic = BsplineSpace1D(knots_periodic, degree, periodic=True)
 
         # Both should have the same domain
         assert spline_open.domain == spline_periodic.domain
@@ -417,7 +417,7 @@ class TestBspline1DIntegration:
         # Create knots with small numerical differences
         knots = [0.0, 0.0, 0.0, 0.5000000001, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree, snap_knots=True)
+        spline = BsplineSpace1D(knots, degree, snap_knots=True)
 
         # After snapping, should still be valid
         assert spline.num_basis > 0
@@ -794,7 +794,7 @@ class TestCreateBsplineBezierExtractionOperators:
         """Test the public create_Bezier_extraction_operators method."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         result = spline.create_Bezier_extraction_operators()
 
         # Should have correct shape
@@ -863,7 +863,7 @@ class TestCreateBsplineLagrangeExtractionOperators:
         """Test the public create_Lagrange_extraction_operators method."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         result = spline.create_Lagrange_extraction_operators()
 
         # Should have correct shape
@@ -960,7 +960,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         """Test the public create_cardinal_extraction_operators method."""
         knots = [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         result = spline.create_cardinal_extraction_operators()
 
         # Should have correct shape
@@ -1054,17 +1054,17 @@ class TestAdditionalEdgeCases:
         assert not np.allclose(Cs[0], np.eye(degree + 1))
 
     def test_eval_basis_public_shapes_and_domain_error(self) -> None:
-        """Bspline1D.eval_basis covers scalar/list/ndarray inputs and domain error."""
+        """BsplineSpace1D.eval_basis covers scalar/list/ndarray inputs and domain error."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         # non Bernstein evaluation path.
         B_scalar, idx_scalar = spline.eval_basis(0.0)
         assert B_scalar.shape == (degree + 1,)
         assert np.isscalar(idx_scalar) or np.array(idx_scalar).shape == ()
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         # scalar input
         B_scalar, idx_scalar = spline.eval_basis(0.0)
         assert B_scalar.shape == (degree + 1,)
@@ -1087,32 +1087,32 @@ class TestAdditionalEdgeCases:
         """Direct Bernstein-like evaluator should assert on non-Bézier-like splines."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
         with pytest.raises(ValueError, match="B-spline does not have Bézier-like knots"):
             _eval_Bspline_basis_Bernstein_like_1D(spline, np.array([0.0, 0.5, 1.0]))
 
 
-class TestBspline1DCoverageTargets:
+class TestBsplineSpace1DCoverageTargets:
     """Additional tests to hit uncovered branches in bspline_1D.py."""
 
     def test_validate_input_2d_array_type_error(self) -> None:
         """2D numpy array for knots should raise TypeError at ndim check."""
         knots = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=np.float64)
         with pytest.raises(TypeError, match="knots must be a 1D numpy array or Python list"):
-            Bspline1D(knots, 2)
+            BsplineSpace1D(knots, 2)
 
     def test_validate_input_invalid_dtype_value_error(self) -> None:
         """Non-float32/float64 dtype (e.g., float16) should raise ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float16)
         with pytest.raises(ValueError, match="knots type must be float \\(32 or 64 bits\\)"):
-            Bspline1D(knots, 2)
+            BsplineSpace1D(knots, 2)
 
     def test_validate_input_periodic_not_enough_basis(self) -> None:
         """Periodic case with too few basis functions should raise ValueError."""
         # This periodic-like vector yields fewer than degree+1 basis functions for degree=2.
         knots = np.array([-1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0], dtype=np.float64)
         with pytest.raises(ValueError, match="Not enough knots for the specified degree"):
-            Bspline1D(knots, 2, periodic=True)
+            BsplineSpace1D(knots, 2, periodic=True)
 
     def test_open_end_checks_are_false_for_periodic(self) -> None:
         """has_left_end_open/has_right_end_open should return False if periodic."""
@@ -1120,7 +1120,7 @@ class TestBspline1DCoverageTargets:
         knots = create_uniform_periodic_knot_vector(
             num_intervals=3, degree=degree, domain=(0.0, 1.0)
         )
-        spl = Bspline1D(knots, degree, periodic=True)
+        spl = BsplineSpace1D(knots, degree, periodic=True)
         assert spl.has_left_end_open() is False
         assert spl.has_right_end_open() is False
 
@@ -1236,7 +1236,7 @@ class TestExtractionOperatorCorrectness:
         if len(knots) < min_knots:
             pytest.skip(f"Knot vector too short for degree {degree}")
 
-        spline = Bspline1D(knots, degree)
+        spline = BsplineSpace1D(knots, degree)
 
         # Get extraction operators based on type
         if extraction_type == "bezier":
