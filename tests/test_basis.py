@@ -7,7 +7,8 @@ including Bernstein basis polynomials.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from enum import Enum
+from typing import Any, Literal
 
 import numpy as np
 import numpy.testing as nptest
@@ -28,6 +29,71 @@ from pantr.quad import PointsLattice
 from pantr.tolerance import get_conservative_tolerance, get_default_tolerance
 
 NEGATIVE_TOL: float = get_conservative_tolerance(np.float64)
+
+
+class BasisType(str, Enum):
+    """Enumeration for basis function types."""
+
+    BERNSTEIN = "bernstein"
+    CARDINAL_BSPLINE = "cardinal_bspline"
+    LAGRANGE = "lagrange"
+
+
+def _get_basis_function(
+    basis_type: BasisType,
+) -> Callable[..., npt.NDArray[np.float32 | np.float64]]:
+    """Get the multi-dimensional basis function for the given type."""
+    if basis_type == BasisType.BERNSTEIN:
+        return eval_Bernstein_basis
+    if basis_type == BasisType.CARDINAL_BSPLINE:
+        return eval_cardinal_Bspline_basis
+    if basis_type == BasisType.LAGRANGE:
+        return eval_Lagrange_basis
+    raise ValueError(f"Unknown basis type: {basis_type}")
+
+
+def _get_basis_1d_function(
+    basis_type: BasisType,
+) -> Callable[..., npt.NDArray[np.float32 | np.float64]]:
+    """Get the 1D basis function for the given type."""
+    if basis_type == BasisType.BERNSTEIN:
+        return eval_Bernstein_basis_1D
+    if basis_type == BasisType.CARDINAL_BSPLINE:
+        return eval_cardinal_Bspline_basis_1D
+    if basis_type == BasisType.LAGRANGE:
+        return eval_Lagrange_basis_1D
+    raise ValueError(f"Unknown basis type: {basis_type}")
+
+
+def _call_basis_function(
+    basis_type: BasisType,
+    degrees: list[int],
+    pts: npt.ArrayLike | PointsLattice,
+    variant: LagrangeVariant | None = None,
+    funcs_order: Literal["C", "F"] = "C",
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Call the appropriate basis function with the given arguments."""
+    func = _get_basis_function(basis_type)
+    if basis_type == BasisType.LAGRANGE:
+        if variant is None:
+            variant = LagrangeVariant.EQUISPACES
+        return func(degrees, variant, pts, funcs_order)
+    return func(degrees, pts, funcs_order)
+
+
+def _call_basis_1d_function(
+    basis_type: BasisType,
+    degree: int,
+    pts: npt.ArrayLike,
+    variant: LagrangeVariant | None = None,
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Call the appropriate 1D basis function with the given arguments."""
+    func = _get_basis_1d_function(basis_type)
+    if basis_type == BasisType.LAGRANGE:
+        if variant is None:
+            variant = LagrangeVariant.EQUISPACES
+        return func(degree, variant, pts)
+    return func(degree, pts)
 
 
 def _eval_with_scipy_bpoly(
@@ -256,536 +322,230 @@ def test_points_outside_unit_interval() -> None:
     nptest.assert_allclose(sums, 1.0, rtol=get_conservative_tolerance(np.float64))
 
 
-class TestEvalBernsteinBasis:
-    """Test suite for eval_Bernstein_basis multi-dimensional function."""
+@pytest.mark.parametrize(
+    "basis_type", [BasisType.BERNSTEIN, BasisType.CARDINAL_BSPLINE, BasisType.LAGRANGE]
+)
+class TestEvalBasis:
+    """Test suite for multi-dimensional basis functions.
 
-    def test_2d_array_single_degree(self) -> None:
+    Tests Bernstein, cardinal B-spline, and Lagrange basis functions.
+    """
+
+    def test_2d_array_single_degree(self, basis_type: BasisType) -> None:
         """Test 2D array input with same degree in both dimensions."""
         degrees = [2, 2]
         pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result = eval_Bernstein_basis(degrees, pts)
+        result = _call_basis_function(basis_type, degrees, pts)
         # Should have shape (n_points, n_basis_functions) = (3, 9) for degree 2 in 2D
         assert result.shape == (3, 9)
         # Verify by comparing with manual computation
-        basis_x = eval_Bernstein_basis_1D(2, pts[:, 0])
-        basis_y = eval_Bernstein_basis_1D(2, pts[:, 1])
+        basis_x = _call_basis_1d_function(basis_type, 2, pts[:, 0])
+        basis_y = _call_basis_1d_function(basis_type, 2, pts[:, 1])
         expected = np.einsum("pi,pj->pij", basis_x, basis_y).reshape(3, 9)
-        nptest.assert_allclose(result, expected)
+        if basis_type == BasisType.LAGRANGE:
+            rtol = get_default_tolerance(np.float64)
+            nptest.assert_allclose(result, expected, rtol=rtol, atol=0.0)
+        else:
+            nptest.assert_allclose(result, expected)
 
-    def test_2d_array_different_degrees(self) -> None:
+    def test_2d_array_different_degrees(self, basis_type: BasisType) -> None:
         """Test 2D array input with different degrees per dimension."""
         degrees = [1, 2]
         pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result = eval_Bernstein_basis(degrees, pts)
-        # Should have shape (3, 6) = (3, (1+1)*(2+1))
+        result = _call_basis_function(basis_type, degrees, pts)
         assert result.shape == (3, 6)
-        # Verify by comparing with manual computation
-        basis_x = eval_Bernstein_basis_1D(1, pts[:, 0])
-        basis_y = eval_Bernstein_basis_1D(2, pts[:, 1])
+        basis_x = _call_basis_1d_function(basis_type, 1, pts[:, 0])
+        basis_y = _call_basis_1d_function(basis_type, 2, pts[:, 1])
         expected = np.einsum("pi,pj->pij", basis_x, basis_y).reshape(3, 6)
-        nptest.assert_allclose(result, expected)
+        if basis_type == BasisType.LAGRANGE:
+            rtol = get_default_tolerance(np.float64)
+            nptest.assert_allclose(result, expected, rtol=rtol, atol=0.0)
+        else:
+            nptest.assert_allclose(result, expected)
 
-    @pytest.mark.xfail(reason="PointsLattice support has a bug in _basis_combinator_lattice einsum")
-    def test_points_lattice(self) -> None:
+    def test_points_lattice(self, basis_type: BasisType) -> None:
         """Test PointsLattice input."""
         degrees = [2, 2]
         pts_x = np.linspace(0.0, 1.0, 3, dtype=np.float64)
         pts_y = np.linspace(0.0, 1.0, 3, dtype=np.float64)
         lattice = PointsLattice([pts_x, pts_y])
-        result = eval_Bernstein_basis(degrees, lattice)
-        # Should have shape (9, 9) = (3*3, (2+1)*(2+1))
+        result = _call_basis_function(basis_type, degrees, lattice)
         assert result.shape == (9, 9)
 
-    def test_points_lattice_mismatched_dimension_raises_error(self) -> None:
+    def test_points_lattice_mismatched_dimension_raises_error(self, basis_type: BasisType) -> None:
         """Test that mismatched number of degrees vs PointsLattice dimension raises ValueError."""
-        degrees = [1, 1, 1]  # 3 degrees
+        degrees = [1, 1, 1]
         pts_x = np.linspace(0.0, 1.0, 3, dtype=np.float64)
         pts_y = np.linspace(0.0, 1.0, 3, dtype=np.float64)
-        lattice = PointsLattice([pts_x, pts_y])  # 2D lattice
+        lattice = PointsLattice([pts_x, pts_y])
         with pytest.raises(
             ValueError, match="The number of evaluators must be equal to the dimension"
         ):
-            eval_Bernstein_basis(degrees, lattice)
+            _call_basis_function(basis_type, degrees, lattice)
 
-    def test_points_lattice_1d(self) -> None:
+    def test_points_lattice_1d(self, basis_type: BasisType) -> None:
         """Test 1D PointsLattice input (to cover return path in _basis_combinator_lattice)."""
         degrees = [2]
         pts_x = np.linspace(0.0, 1.0, 3, dtype=np.float64)
         lattice = PointsLattice([pts_x])
-        result = eval_Bernstein_basis(degrees, lattice)
-        # Should have shape (3, 3) = (3, (2+1))
+        result = _call_basis_function(basis_type, degrees, lattice)
         assert result.shape == (3, 3)
 
-    def test_funcs_order_c(self) -> None:
+    def test_funcs_order_c(self, basis_type: BasisType) -> None:
         """Test C-order (default) for basis functions."""
         degrees = [1, 1]
         pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result_c = eval_Bernstein_basis(degrees, pts, funcs_order="C")
-        # In C-order, last index varies fastest
-        # For 2D degree 1: basis functions are (0,0), (0,1), (1,0), (1,1)
-        assert result_c.shape == (3, 4)
+        result = _call_basis_function(basis_type, degrees, pts, funcs_order="C")
+        assert result.shape == (3, 4)
 
-    def test_funcs_order_f(self) -> None:
+    def test_funcs_order_f(self, basis_type: BasisType) -> None:
         """Test F-order for basis functions."""
         degrees = [1, 1]
         pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result_f = eval_Bernstein_basis(degrees, pts, funcs_order="F")
-        result_c = eval_Bernstein_basis(degrees, pts, funcs_order="C")
-        # Should have same shape but different ordering
+        result_f = _call_basis_function(basis_type, degrees, pts, funcs_order="F")
+        result_c = _call_basis_function(basis_type, degrees, pts, funcs_order="C")
         assert result_f.shape == result_c.shape == (3, 4)
-        # Values should be the same, just reordered
-        assert result_f.shape == result_c.shape
 
-    def test_3d_array(self) -> None:
+    def test_3d_array(self, basis_type: BasisType) -> None:
         """Test 3D array input."""
         degrees = [1, 1, 1]
         pts = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [1.0, 1.0, 1.0]], dtype=np.float64)
-        result = eval_Bernstein_basis(degrees, pts)
-        # Should have shape (3, 8) = (3, (1+1)^3)
+        result = _call_basis_function(basis_type, degrees, pts)
         assert result.shape == (3, 8)
 
-    def test_dtype_preservation_float32(self) -> None:
+    def test_dtype_preservation_float32(self, basis_type: BasisType) -> None:
         """Test dtype preservation with float32."""
         degrees = [2, 2]
         pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float32)
-        result = eval_Bernstein_basis(degrees, pts)
+        result = _call_basis_function(basis_type, degrees, pts)
         assert result.dtype == np.float32
 
-    def test_dtype_preservation_float64(self) -> None:
+    def test_dtype_preservation_float64(self, basis_type: BasisType) -> None:
         """Test dtype preservation with float64."""
         degrees = [2, 2]
         pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float64)
-        result = eval_Bernstein_basis(degrees, pts)
+        result = _call_basis_function(basis_type, degrees, pts)
         assert result.dtype == np.float64
 
-    def test_negative_degree_raises_error(self) -> None:
+    def test_negative_degree_raises_error(self, basis_type: BasisType) -> None:
         """Test that negative degree raises ValueError."""
         degrees = [-1, 2]
         pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float64)
         with pytest.raises(ValueError, match="All degrees must be non-negative integers"):
-            eval_Bernstein_basis(degrees, pts)
+            _call_basis_function(basis_type, degrees, pts)
 
-    def test_partition_of_unity(self) -> None:
-        """Test that multi-dimensional Bernstein basis functions sum to 1."""
+    def test_partition_of_unity(self, basis_type: BasisType) -> None:
+        """Test that multi-dimensional basis functions sum to 1."""
         degrees = [2, 2]
         pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result = eval_Bernstein_basis(degrees, pts)
+        result = _call_basis_function(basis_type, degrees, pts)
         sums = np.sum(result, axis=-1)
-        nptest.assert_allclose(sums, 1.0, rtol=get_conservative_tolerance(np.float64))
+        if basis_type in (BasisType.LAGRANGE, BasisType.CARDINAL_BSPLINE):
+            rtol = get_default_tolerance(np.float64)
+            nptest.assert_allclose(sums, 1.0, rtol=rtol, atol=0.0)
+        else:
+            nptest.assert_allclose(sums, 1.0, rtol=get_conservative_tolerance(np.float64))
 
-    def test_single_point(self) -> None:
+    def test_single_point(self, basis_type: BasisType) -> None:
         """Test with single point."""
         degrees = [1, 1]
         pts = np.array([[0.5, 0.5]], dtype=np.float64)
-        result = eval_Bernstein_basis(degrees, pts)
+        result = _call_basis_function(basis_type, degrees, pts)
         assert result.shape == (1, 4)
-        # Sum should be 1
-        nptest.assert_allclose(np.sum(result), 1.0)
+        if basis_type in (BasisType.LAGRANGE, BasisType.CARDINAL_BSPLINE):
+            rtol = get_default_tolerance(np.float64)
+            nptest.assert_allclose(np.sum(result), 1.0, rtol=rtol, atol=0.0)
+        else:
+            nptest.assert_allclose(np.sum(result), 1.0)
 
-    def test_non_ndarray_input_list(self) -> None:
+    def test_non_ndarray_input_list(self, basis_type: BasisType) -> None:
         """Test with list input (converted to ndarray internally)."""
         degrees = [1, 1]
         pts = [[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]]
-        result = eval_Bernstein_basis(degrees, pts)
+        result = _call_basis_function(basis_type, degrees, pts)
         assert result.shape == (3, 4)
 
-    def test_non_ndarray_input_tuple(self) -> None:
+    def test_non_ndarray_input_tuple(self, basis_type: BasisType) -> None:
         """Test with tuple input (converted to ndarray internally)."""
         degrees = [2]
         pts = ((0.0,), (0.5,), (1.0,))
-        result = eval_Bernstein_basis(degrees, pts)
+        result = _call_basis_function(basis_type, degrees, pts)
         assert result.shape == (3, 3)
 
-    def test_non_2d_array_raises_error(self) -> None:
+    def test_non_2d_array_raises_error(self, basis_type: BasisType) -> None:
         """Test that non-2D array input raises ValueError."""
         degrees = [1, 1]
-        # 1D array
         pts_1d = np.array([0.0, 0.5, 1.0], dtype=np.float64)
         with pytest.raises(ValueError, match="Input points must be a 2D array"):
-            eval_Bernstein_basis(degrees, pts_1d)
-        # 3D array
+            _call_basis_function(basis_type, degrees, pts_1d)
         pts_3d = np.array([[[0.0, 0.0]]], dtype=np.float64)
         with pytest.raises(ValueError, match="Input points must be a 2D array"):
-            eval_Bernstein_basis(degrees, pts_3d)
+            _call_basis_function(basis_type, degrees, pts_3d)
 
-    def test_int_dtype_converted_to_float64(self) -> None:
+    def test_int_dtype_converted_to_float64(self, basis_type: BasisType) -> None:
         """Test that integer dtype is converted to float64."""
         degrees = [1, 1]
         pts = np.array([[0, 0], [1, 1]], dtype=np.int32)
-        result = eval_Bernstein_basis(degrees, pts)
+        result = _call_basis_function(basis_type, degrees, pts)
         assert result.dtype == np.float64
 
-    def test_empty_dimension_raises_error(self) -> None:
+    def test_empty_dimension_raises_error(self, basis_type: BasisType) -> None:
         """Test that empty dimension (dim < 1) raises ValueError."""
         degrees = [1]
-        # Points with shape (n, 0) - empty second dimension
         pts = np.array([[]], dtype=np.float64).reshape(1, 0)
         with pytest.raises(ValueError, match="The dimension of the points must be at least 1"):
-            eval_Bernstein_basis(degrees, pts)
+            _call_basis_function(basis_type, degrees, pts)
 
-    def test_mismatched_degrees_dimension_raises_error(self) -> None:
+    def test_mismatched_degrees_dimension_raises_error(self, basis_type: BasisType) -> None:
         """Test that mismatched number of degrees vs dimension raises ValueError."""
-        degrees = [1, 1, 1]  # 3 degrees
-        pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float64)  # 2D points
-        with pytest.raises(
-            ValueError, match="The number of evaluators must be equal to the dimension"
-        ):
-            eval_Bernstein_basis(degrees, pts)
-
-
-class TestEvalCardinalBsplineBasis:
-    """Test suite for eval_cardinal_Bspline_basis multi-dimensional function."""
-
-    def test_2d_array_single_degree(self) -> None:
-        """Test 2D array input with same degree in both dimensions."""
-        degrees = [2, 2]
-        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result = eval_cardinal_Bspline_basis(degrees, pts)
-        # Should have shape (n_points, n_basis_functions) = (3, 9) for degree 2 in 2D
-        assert result.shape == (3, 9)
-        # Verify by comparing with manual computation
-        basis_x = eval_cardinal_Bspline_basis_1D(2, pts[:, 0])
-        basis_y = eval_cardinal_Bspline_basis_1D(2, pts[:, 1])
-        expected = np.einsum("pi,pj->pij", basis_x, basis_y).reshape(3, 9)
-        nptest.assert_allclose(result, expected)
-
-    def test_2d_array_different_degrees(self) -> None:
-        """Test 2D array input with different degrees per dimension."""
-        degrees = [1, 2]
-        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result = eval_cardinal_Bspline_basis(degrees, pts)
-        # Should have shape (3, 6) = (3, (1+1)*(2+1))
-        assert result.shape == (3, 6)
-        # Verify by comparing with manual computation
-        basis_x = eval_cardinal_Bspline_basis_1D(1, pts[:, 0])
-        basis_y = eval_cardinal_Bspline_basis_1D(2, pts[:, 1])
-        expected = np.einsum("pi,pj->pij", basis_x, basis_y).reshape(3, 6)
-        nptest.assert_allclose(result, expected)
-
-    @pytest.mark.xfail(reason="PointsLattice support has a bug in _basis_combinator_lattice einsum")
-    def test_points_lattice(self) -> None:
-        """Test PointsLattice input."""
-        degrees = [2, 2]
-        pts_x = np.linspace(0.0, 1.0, 3, dtype=np.float64)
-        pts_y = np.linspace(0.0, 1.0, 3, dtype=np.float64)
-        lattice = PointsLattice([pts_x, pts_y])
-        result = eval_cardinal_Bspline_basis(degrees, lattice)
-        # Should have shape (9, 9) = (3*3, (2+1)*(2+1))
-        assert result.shape == (9, 9)
-
-    def test_points_lattice_mismatched_dimension_raises_error(self) -> None:
-        """Test that mismatched number of degrees vs PointsLattice dimension raises ValueError."""
-        degrees = [1, 1, 1]  # 3 degrees
-        pts_x = np.linspace(0.0, 1.0, 3, dtype=np.float64)
-        pts_y = np.linspace(0.0, 1.0, 3, dtype=np.float64)
-        lattice = PointsLattice([pts_x, pts_y])  # 2D lattice
-        with pytest.raises(
-            ValueError, match="The number of evaluators must be equal to the dimension"
-        ):
-            eval_cardinal_Bspline_basis(degrees, lattice)
-
-    def test_points_lattice_1d(self) -> None:
-        """Test 1D PointsLattice input (to cover return path in _basis_combinator_lattice)."""
-        degrees = [2]
-        pts_x = np.linspace(0.0, 1.0, 3, dtype=np.float64)
-        lattice = PointsLattice([pts_x])
-        result = eval_cardinal_Bspline_basis(degrees, lattice)
-        # Should have shape (3, 3) = (3, (2+1))
-        assert result.shape == (3, 3)
-
-    def test_funcs_order_c(self) -> None:
-        """Test C-order (default) for basis functions."""
-        degrees = [1, 1]
-        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result = eval_cardinal_Bspline_basis(degrees, pts, funcs_order="C")
-        assert result.shape == (3, 4)
-
-    def test_funcs_order_f(self) -> None:
-        """Test F-order for basis functions."""
-        degrees = [1, 1]
-        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result_f = eval_cardinal_Bspline_basis(degrees, pts, funcs_order="F")
-        result_c = eval_cardinal_Bspline_basis(degrees, pts, funcs_order="C")
-        assert result_f.shape == result_c.shape == (3, 4)
-
-    def test_3d_array(self) -> None:
-        """Test 3D array input."""
         degrees = [1, 1, 1]
-        pts = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [1.0, 1.0, 1.0]], dtype=np.float64)
-        result = eval_cardinal_Bspline_basis(degrees, pts)
-        assert result.shape == (3, 8)
-
-    def test_dtype_preservation_float32(self) -> None:
-        """Test dtype preservation with float32."""
-        degrees = [2, 2]
-        pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float32)
-        result = eval_cardinal_Bspline_basis(degrees, pts)
-        assert result.dtype == np.float32
-
-    def test_dtype_preservation_float64(self) -> None:
-        """Test dtype preservation with float64."""
-        degrees = [2, 2]
         pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float64)
-        result = eval_cardinal_Bspline_basis(degrees, pts)
-        assert result.dtype == np.float64
-
-    def test_negative_degree_raises_error(self) -> None:
-        """Test that negative degree raises ValueError."""
-        degrees = [-1, 2]
-        pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float64)
-        with pytest.raises(ValueError, match="All degrees must be non-negative integers"):
-            eval_cardinal_Bspline_basis(degrees, pts)
-
-    def test_partition_of_unity(self) -> None:
-        """Test that multi-dimensional cardinal B-spline basis functions sum to 1."""
-        degrees = [2, 2]
-        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result = eval_cardinal_Bspline_basis(degrees, pts)
-        sums = np.sum(result, axis=-1)
-        rtol = get_default_tolerance(np.float64)
-        nptest.assert_allclose(sums, 1.0, rtol=rtol, atol=0.0)
-
-    def test_single_point(self) -> None:
-        """Test with single point."""
-        degrees = [1, 1]
-        pts = np.array([[0.5, 0.5]], dtype=np.float64)
-        result = eval_cardinal_Bspline_basis(degrees, pts)
-        assert result.shape == (1, 4)
-        # Sum should be 1
-        rtol = get_default_tolerance(np.float64)
-        nptest.assert_allclose(np.sum(result), 1.0, rtol=rtol, atol=0.0)
-
-    def test_non_ndarray_input_list(self) -> None:
-        """Test with list input (converted to ndarray internally)."""
-        degrees = [1, 1]
-        pts = [[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]]
-        result = eval_cardinal_Bspline_basis(degrees, pts)
-        assert result.shape == (3, 4)
-
-    def test_non_2d_array_raises_error(self) -> None:
-        """Test that non-2D array input raises ValueError."""
-        degrees = [1, 1]
-        pts_1d = np.array([0.0, 0.5, 1.0], dtype=np.float64)
-        with pytest.raises(ValueError, match="Input points must be a 2D array"):
-            eval_cardinal_Bspline_basis(degrees, pts_1d)
-
-    def test_int_dtype_converted_to_float64(self) -> None:
-        """Test that integer dtype is converted to float64."""
-        degrees = [1, 1]
-        pts = np.array([[0, 0], [1, 1]], dtype=np.int32)
-        result = eval_cardinal_Bspline_basis(degrees, pts)
-        assert result.dtype == np.float64
-
-    def test_empty_dimension_raises_error(self) -> None:
-        """Test that empty dimension (dim < 1) raises ValueError."""
-        degrees = [1]
-        pts = np.array([[]], dtype=np.float64).reshape(1, 0)
-        with pytest.raises(ValueError, match="The dimension of the points must be at least 1"):
-            eval_cardinal_Bspline_basis(degrees, pts)
-
-    def test_mismatched_degrees_dimension_raises_error(self) -> None:
-        """Test that mismatched number of degrees vs dimension raises ValueError."""
-        degrees = [1, 1, 1]  # 3 degrees
-        pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float64)  # 2D points
         with pytest.raises(
             ValueError, match="The number of evaluators must be equal to the dimension"
         ):
-            eval_cardinal_Bspline_basis(degrees, pts)
+            _call_basis_function(basis_type, degrees, pts)
 
 
-class TestEvalLagrangeBasis:
-    """Test suite for eval_Lagrange_basis multi-dimensional function."""
+@pytest.mark.parametrize(
+    "variant",
+    [
+        LagrangeVariant.EQUISPACES,
+        LagrangeVariant.GAUSS_LEGENDRE,
+        LagrangeVariant.GAUSS_LOBATTO_LEGENDRE,
+        LagrangeVariant.CHEBYSHEV_1ST,
+        LagrangeVariant.CHEBYSHEV_2ND,
+    ],
+)
+def test_2d_array_single_degree_lagrange_variants(variant: LagrangeVariant) -> None:
+    """Test 2D array input with same degree in both dimensions for Lagrange variants."""
+    degrees = [2, 2]
+    pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
+    result = _call_basis_function(BasisType.LAGRANGE, degrees, pts, variant)
+    # Should have shape (n_points, n_basis_functions) = (3, 9) for degree 2 in 2D
+    assert result.shape == (3, 9)
+    # Verify by comparing with manual computation
+    basis_x = _call_basis_1d_function(BasisType.LAGRANGE, 2, pts[:, 0], variant)
+    basis_y = _call_basis_1d_function(BasisType.LAGRANGE, 2, pts[:, 1], variant)
+    expected = np.einsum("pi,pj->pij", basis_x, basis_y).reshape(3, 9)
+    rtol = get_default_tolerance(np.float64)
+    nptest.assert_allclose(result, expected, rtol=rtol, atol=0.0)
 
-    @pytest.mark.parametrize(
-        "variant",
-        [
-            LagrangeVariant.EQUISPACES,
-            LagrangeVariant.GAUSS_LEGENDRE,
-            LagrangeVariant.GAUSS_LOBATTO_LEGENDRE,
-            LagrangeVariant.CHEBYSHEV_1ST,
-            LagrangeVariant.CHEBYSHEV_2ND,
-        ],
-    )
-    def test_2d_array_single_degree(self, variant: LagrangeVariant) -> None:
-        """Test 2D array input with same degree in both dimensions."""
-        degrees = [2, 2]
-        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result = eval_Lagrange_basis(degrees, variant, pts)
-        # Should have shape (n_points, n_basis_functions) = (3, 9) for degree 2 in 2D
-        assert result.shape == (3, 9)
-        # Verify by comparing with manual computation
-        basis_x = eval_Lagrange_basis_1D(2, variant, pts[:, 0])
-        basis_y = eval_Lagrange_basis_1D(2, variant, pts[:, 1])
-        expected = np.einsum("pi,pj->pij", basis_x, basis_y).reshape(3, 9)
-        rtol = get_default_tolerance(np.float64)
-        nptest.assert_allclose(result, expected, rtol=rtol, atol=0.0)
 
-    def test_2d_array_different_degrees(self) -> None:
-        """Test 2D array input with different degrees per dimension."""
-        degrees = [1, 2]
-        variant = LagrangeVariant.EQUISPACES
-        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result = eval_Lagrange_basis(degrees, variant, pts)
-        # Should have shape (3, 6) = (3, (1+1)*(2+1))
-        assert result.shape == (3, 6)
-        # Verify by comparing with manual computation
-        basis_x = eval_Lagrange_basis_1D(1, variant, pts[:, 0])
-        basis_y = eval_Lagrange_basis_1D(2, variant, pts[:, 1])
-        expected = np.einsum("pi,pj->pij", basis_x, basis_y).reshape(3, 6)
-        rtol = get_default_tolerance(np.float64)
-        nptest.assert_allclose(result, expected, rtol=rtol, atol=0.0)
-
-    @pytest.mark.xfail(reason="PointsLattice support has a bug in _basis_combinator_lattice einsum")
-    def test_points_lattice(self) -> None:
-        """Test PointsLattice input."""
-        degrees = [2, 2]
-        variant = LagrangeVariant.EQUISPACES
-        pts_x = np.linspace(0.0, 1.0, 3, dtype=np.float64)
-        pts_y = np.linspace(0.0, 1.0, 3, dtype=np.float64)
-        lattice = PointsLattice([pts_x, pts_y])
-        result = eval_Lagrange_basis(degrees, variant, lattice)
-        # Should have shape (9, 9) = (3*3, (2+1)*(2+1))
-        assert result.shape == (9, 9)
-
-    def test_points_lattice_mismatched_dimension_raises_error(self) -> None:
-        """Test that mismatched number of degrees vs PointsLattice dimension raises ValueError."""
-        degrees = [1, 1, 1]  # 3 degrees
-        variant = LagrangeVariant.EQUISPACES
-        pts_x = np.linspace(0.0, 1.0, 3, dtype=np.float64)
-        pts_y = np.linspace(0.0, 1.0, 3, dtype=np.float64)
-        lattice = PointsLattice([pts_x, pts_y])  # 2D lattice
-        with pytest.raises(
-            ValueError, match="The number of evaluators must be equal to the dimension"
-        ):
-            eval_Lagrange_basis(degrees, variant, lattice)
-
-    def test_points_lattice_1d(self) -> None:
-        """Test 1D PointsLattice input (to cover return path in _basis_combinator_lattice)."""
-        degrees = [2]
-        variant = LagrangeVariant.EQUISPACES
-        pts_x = np.linspace(0.0, 1.0, 3, dtype=np.float64)
-        lattice = PointsLattice([pts_x])
-        result = eval_Lagrange_basis(degrees, variant, lattice)
-        # Should have shape (3, 3) = (3, (2+1))
-        assert result.shape == (3, 3)
-
-    def test_funcs_order_c(self) -> None:
-        """Test C-order (default) for basis functions."""
-        degrees = [1, 1]
-        variant = LagrangeVariant.EQUISPACES
-        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result = eval_Lagrange_basis(degrees, variant, pts, funcs_order="C")
-        assert result.shape == (3, 4)
-
-    def test_funcs_order_f(self) -> None:
-        """Test F-order for basis functions."""
-        degrees = [1, 1]
-        variant = LagrangeVariant.EQUISPACES
-        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result_f = eval_Lagrange_basis(degrees, variant, pts, funcs_order="F")
-        result_c = eval_Lagrange_basis(degrees, variant, pts, funcs_order="C")
-        assert result_f.shape == result_c.shape == (3, 4)
-
-    def test_3d_array(self) -> None:
-        """Test 3D array input."""
-        degrees = [1, 1, 1]
-        variant = LagrangeVariant.EQUISPACES
-        pts = np.array([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [1.0, 1.0, 1.0]], dtype=np.float64)
-        result = eval_Lagrange_basis(degrees, variant, pts)
-        assert result.shape == (3, 8)
-
-    def test_dtype_preservation_float32(self) -> None:
-        """Test dtype preservation with float32."""
-        degrees = [2, 2]
-        variant = LagrangeVariant.EQUISPACES
-        pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float32)
-        result = eval_Lagrange_basis(degrees, variant, pts)
-        assert result.dtype == np.float32
-
-    def test_dtype_preservation_float64(self) -> None:
-        """Test dtype preservation with float64."""
-        degrees = [2, 2]
-        variant = LagrangeVariant.EQUISPACES
-        pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float64)
-        result = eval_Lagrange_basis(degrees, variant, pts)
-        assert result.dtype == np.float64
-
-    def test_negative_degree_raises_error(self) -> None:
-        """Test that negative degree raises ValueError."""
-        degrees = [-1, 2]
-        variant = LagrangeVariant.EQUISPACES
-        pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float64)
-        with pytest.raises(ValueError, match="All degrees must be non-negative integers"):
-            eval_Lagrange_basis(degrees, variant, pts)
-
-    @pytest.mark.parametrize(
-        "variant",
-        [
-            LagrangeVariant.EQUISPACES,
-            LagrangeVariant.GAUSS_LEGENDRE,
-            LagrangeVariant.GAUSS_LOBATTO_LEGENDRE,
-            LagrangeVariant.CHEBYSHEV_1ST,
-            LagrangeVariant.CHEBYSHEV_2ND,
-        ],
-    )
-    def test_partition_of_unity(self, variant: LagrangeVariant) -> None:
-        """Test that multi-dimensional Lagrange basis functions sum to 1."""
-        degrees = [2, 2]
-        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
-        result = eval_Lagrange_basis(degrees, variant, pts)
-        sums = np.sum(result, axis=-1)
-        rtol = get_default_tolerance(np.float64)
-        nptest.assert_allclose(sums, 1.0, rtol=rtol, atol=0.0)
-
-    def test_single_point(self) -> None:
-        """Test with single point."""
-        degrees = [1, 1]
-        variant = LagrangeVariant.EQUISPACES
-        pts = np.array([[0.5, 0.5]], dtype=np.float64)
-        result = eval_Lagrange_basis(degrees, variant, pts)
-        assert result.shape == (1, 4)
-        # Sum should be 1
-        rtol = get_default_tolerance(np.float64)
-        nptest.assert_allclose(np.sum(result), 1.0, rtol=rtol, atol=0.0)
-
-    def test_non_ndarray_input_list(self) -> None:
-        """Test with list input (converted to ndarray internally)."""
-        degrees = [1, 1]
-        variant = LagrangeVariant.EQUISPACES
-        pts = [[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]]
-        result = eval_Lagrange_basis(degrees, variant, pts)
-        assert result.shape == (3, 4)
-
-    def test_non_2d_array_raises_error(self) -> None:
-        """Test that non-2D array input raises ValueError."""
-        degrees = [1, 1]
-        variant = LagrangeVariant.EQUISPACES
-        pts_1d = np.array([0.0, 0.5, 1.0], dtype=np.float64)
-        with pytest.raises(ValueError, match="Input points must be a 2D array"):
-            eval_Lagrange_basis(degrees, variant, pts_1d)
-
-    def test_int_dtype_converted_to_float64(self) -> None:
-        """Test that integer dtype is converted to float64."""
-        degrees = [1, 1]
-        variant = LagrangeVariant.EQUISPACES
-        pts = np.array([[0, 0], [1, 1]], dtype=np.int32)
-        result = eval_Lagrange_basis(degrees, variant, pts)
-        assert result.dtype == np.float64
-
-    def test_empty_dimension_raises_error(self) -> None:
-        """Test that empty dimension (dim < 1) raises ValueError."""
-        degrees = [1]
-        variant = LagrangeVariant.EQUISPACES
-        pts = np.array([[]], dtype=np.float64).reshape(1, 0)
-        with pytest.raises(ValueError, match="The dimension of the points must be at least 1"):
-            eval_Lagrange_basis(degrees, variant, pts)
-
-    def test_mismatched_degrees_dimension_raises_error(self) -> None:
-        """Test that mismatched number of degrees vs dimension raises ValueError."""
-        degrees = [1, 1, 1]  # 3 degrees
-        variant = LagrangeVariant.EQUISPACES
-        pts = np.array([[0.0, 0.0], [0.5, 0.5]], dtype=np.float64)  # 2D points
-        with pytest.raises(
-            ValueError, match="The number of evaluators must be equal to the dimension"
-        ):
-            eval_Lagrange_basis(degrees, variant, pts)
+@pytest.mark.parametrize(
+    "variant",
+    [
+        LagrangeVariant.EQUISPACES,
+        LagrangeVariant.GAUSS_LEGENDRE,
+        LagrangeVariant.GAUSS_LOBATTO_LEGENDRE,
+        LagrangeVariant.CHEBYSHEV_1ST,
+        LagrangeVariant.CHEBYSHEV_2ND,
+    ],
+)
+def test_partition_of_unity_lagrange_variants(variant: LagrangeVariant) -> None:
+    """Test that multi-dimensional Lagrange basis functions sum to 1 for all variants."""
+    degrees = [2, 2]
+    pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
+    result = _call_basis_function(BasisType.LAGRANGE, degrees, pts, variant)
+    sums = np.sum(result, axis=-1)
+    rtol = get_default_tolerance(np.float64)
+    nptest.assert_allclose(sums, 1.0, rtol=rtol, atol=0.0)
