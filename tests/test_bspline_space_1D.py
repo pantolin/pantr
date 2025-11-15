@@ -5,7 +5,7 @@ from collections.abc import Callable
 import numpy as np
 import pytest
 
-from pantr._bspline_1D_impl import (
+from pantr._bspline_space_1D_impl import (
     _check_spline_info,
     _compute_num_basis_impl,
     _create_bspline_Bezier_extraction_impl,
