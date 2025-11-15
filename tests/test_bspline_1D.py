@@ -1,12 +1,16 @@
 """Tests for bspline_1D module."""
 
+from collections.abc import Callable
+
 import numpy as np
 import pytest
 
 from pantr._bspline_1D_impl import (
     _check_spline_info,
     _compute_num_basis_impl,
-    _create_bspline_Bezier_extraction_operators_impl,
+    _create_bspline_Bezier_extraction_impl,
+    _create_bspline_cardinal_extraction_impl,
+    _create_bspline_Lagrange_extraction_impl,
     _eval_basis_Cox_de_Boor_impl,
     _eval_Bspline_basis_Bernstein_like_1D,
     _get_cardinal_intervals_impl,
@@ -14,6 +18,12 @@ from pantr._bspline_1D_impl import (
     _get_multiplicity_of_first_knot_in_domain_impl,
     _get_unique_knots_and_multiplicity_impl,
     _is_in_domain_impl,
+)
+from pantr.basis import (
+    LagrangeVariant,
+    eval_Bernstein_basis_1D,
+    eval_cardinal_Bspline_basis_1D,
+    eval_Lagrange_basis_1D,
 )
 from pantr.bspline_1D import Bspline1D
 from pantr.knots import (
@@ -428,24 +438,24 @@ class TestAssertSplineInfo:
         _check_spline_info(knots, degree)
 
     def test_invalid_degree(self) -> None:
-        """Test that negative degree raises AssertionError."""
+        """Test that negative degree raises ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = -1
-        with pytest.raises(AssertionError, match="degree must be non-negative"):
+        with pytest.raises(ValueError, match="degree must be non-negative"):
             _check_spline_info(knots, degree)
 
     def test_insufficient_knots(self) -> None:
-        """Test that insufficient knots raise AssertionError."""
+        """Test that insufficient knots raise ValueError."""
         knots = np.array([0.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="knots must have at least"):
+        with pytest.raises(ValueError, match="knots must have at least"):
             _check_spline_info(knots, degree)
 
     def test_non_decreasing_knots(self) -> None:
-        """Test that non-decreasing knots raise AssertionError."""
+        """Test that non-decreasing knots raise ValueError."""
         knots = np.array([0.0, 1.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="knots must be non-decreasing"):
+        with pytest.raises(ValueError, match="knots must be non-decreasing"):
             _check_spline_info(knots, degree)
 
 
@@ -470,10 +480,10 @@ class TestGetMultiplicityOfFirstKnotInDomain:
         assert result == 1  # First knot in domain (index 2) has multiplicity 1
 
     def test_negative_tolerance_error(self) -> None:
-        """Test that negative tolerance raises AssertionError."""
+        """Test that negative tolerance raises ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="tol must be positive"):
+        with pytest.raises(ValueError, match="tol must be positive"):
             _get_multiplicity_of_first_knot_in_domain_impl(knots, degree, -1.0)
 
 
@@ -520,10 +530,10 @@ class TestGetUniqueKnotsAndMultiplicity:
         np.testing.assert_array_equal(multiplicities, expected_mults)
 
     def test_negative_tolerance_error(self) -> None:
-        """Negative tolerance should raise AssertionError."""
+        """Negative tolerance should raise ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="tol must be positive"):
+        with pytest.raises(ValueError, match="tol must be positive"):
             _get_unique_knots_and_multiplicity_impl(knots, degree, -1.0, in_domain=True)
 
 
@@ -558,12 +568,12 @@ class TestIsInDomain:
         np.testing.assert_array_equal(result, [True, True])
 
     def test_empty_points_array(self) -> None:
-        """Test that empty points array raises AssertionError."""
+        """Test that empty points array raises ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         pts = np.array([], dtype=np.float64)
         tol = 1e-10
-        with pytest.raises(AssertionError, match="pts must have at least one element"):
+        with pytest.raises(ValueError, match="pts must have at least one element"):
             _is_in_domain_impl(knots, degree, pts, tol)
 
 
@@ -595,10 +605,10 @@ class TestComputeNumBasis:
         assert result == 2  # noqa: PLR2004
 
     def test_negative_tolerance_error(self) -> None:
-        """Test that negative tolerance raises AssertionError."""
+        """Test that negative tolerance raises ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="tol must be positive"):
+        with pytest.raises(ValueError, match="tol must be positive"):
             _compute_num_basis_impl(knots, degree, False, -1.0)
 
 
@@ -630,10 +640,10 @@ class TestGetLastKnotSmallerEqual:
         np.testing.assert_array_equal(result, expected)
 
     def test_non_decreasing_knots_error(self) -> None:
-        """Test that non-decreasing knots raise AssertionError."""
+        """Test that non-decreasing knots raise ValueError."""
         knots = np.array([0.0, 1.0, 0.5, 2.0], dtype=np.float64)
         pts = np.array([0.5], dtype=np.float64)
-        with pytest.raises(AssertionError, match="knots must be non-decreasing"):
+        with pytest.raises(ValueError, match="knots must be non-decreasing"):
             _get_last_knot_smaller_equal_impl(knots, pts)
 
 
@@ -695,14 +705,14 @@ class TestEvaluateBasisCoxDeBoor:
         np.testing.assert_array_almost_equal(sums, np.ones_like(sums))
 
     def test_outside_domain_error(self) -> None:
-        """Test that points outside domain raise AssertionError."""
+        """Test that points outside domain raise ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         periodic = False
         tol = 1e-10
         pts = np.array([-0.1], dtype=np.float64)
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
 
 
@@ -751,7 +761,7 @@ class TestCreateBsplineBezierExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_Bezier_extraction_operators_impl(knots, degree, tol)
+        result = _create_bspline_Bezier_extraction_impl(knots, degree, tol)
 
         # Should have 1 interval, 3x3 extraction matrix
         assert result.shape == (1, 3, 3)
@@ -764,7 +774,7 @@ class TestCreateBsplineBezierExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_Bezier_extraction_operators_impl(knots, degree, tol)
+        result = _create_bspline_Bezier_extraction_impl(knots, degree, tol)
 
         # Should have 2 intervals, 3x3 extraction matrices
         assert result.shape == (2, 3, 3)
@@ -774,11 +784,236 @@ class TestCreateBsplineBezierExtractionOperators:
         assert not np.allclose(result[1], np.eye(3))
 
     def test_negative_tolerance_error(self) -> None:
-        """Test that negative tolerance raises AssertionError."""
+        """Test that negative tolerance raises ValueError."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="tol must be positive"):
-            _create_bspline_Bezier_extraction_operators_impl(knots, degree, -1.0)
+        with pytest.raises(ValueError, match="tol must be positive"):
+            _create_bspline_Bezier_extraction_impl(knots, degree, -1.0)
+
+    def test_public_method(self) -> None:
+        """Test the public create_Bezier_extraction_operators method."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = Bspline1D(knots, degree)
+        result = spline.create_Bezier_extraction_operators()
+
+        # Should have correct shape
+        assert result.shape == (2, 3, 3)
+
+        # Should match the implementation
+        expected = _create_bspline_Bezier_extraction_impl(
+            np.array(knots, dtype=np.float64), degree, spline.tolerance
+        )
+        np.testing.assert_array_almost_equal(result, expected)
+
+
+class TestCreateBsplineLagrangeExtractionOperators:
+    """Test the create_Lagrange_extraction_operators method and implementation."""
+
+    def test_bezier_like_knot_vector(self) -> None:
+        """Test Lagrange extraction operators for Bézier-like knot vector."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
+        degree = 2
+        tol = 1e-10
+        result = _create_bspline_Lagrange_extraction_impl(knots, degree, tol)
+
+        # Should have 1 interval, 3x3 extraction matrix
+        assert result.shape == (1, 3, 3)
+
+        # For Bézier-like knots, extraction matrix should not be identity
+        # (since it transforms from Lagrange to B-spline, not Bernstein)
+        assert not np.allclose(result[0], np.eye(3))
+
+    def test_general_knot_vector(self) -> None:
+        """Test Lagrange extraction operators for general knot vector."""
+        knots = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
+        degree = 2
+        tol = 1e-10
+        result = _create_bspline_Lagrange_extraction_impl(knots, degree, tol)
+
+        # Should have 2 intervals, 3x3 extraction matrices
+        assert result.shape == (2, 3, 3)
+
+        # Check that matrices are not identity
+        assert not np.allclose(result[0], np.eye(3))
+        assert not np.allclose(result[1], np.eye(3))
+
+    def test_multiple_intervals(self) -> None:
+        """Test Lagrange extraction operators for multiple intervals."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 3.0], dtype=np.float64)
+        degree = 2
+        tol = 1e-10
+        result = _create_bspline_Lagrange_extraction_impl(knots, degree, tol)
+
+        # Should have 3 intervals, 3x3 extraction matrices
+        assert result.shape == (3, 3, 3)
+
+        # All matrices should be square and of correct size
+        for i in range(3):
+            assert result[i].shape == (3, 3)
+
+    def test_negative_tolerance_error(self) -> None:
+        """Test that negative tolerance raises ValueError."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
+        degree = 2
+        with pytest.raises(ValueError, match="tol must be positive"):
+            _create_bspline_Lagrange_extraction_impl(knots, degree, -1.0)
+
+    def test_public_method(self) -> None:
+        """Test the public create_Lagrange_extraction_operators method."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = Bspline1D(knots, degree)
+        result = spline.create_Lagrange_extraction_operators()
+
+        # Should have correct shape
+        assert result.shape == (2, 3, 3)
+
+        # Should match the implementation
+        expected = _create_bspline_Lagrange_extraction_impl(
+            np.array(knots, dtype=np.float64), degree, spline.tolerance
+        )
+        np.testing.assert_array_almost_equal(result, expected)
+
+    def test_different_degrees(self) -> None:
+        """Test Lagrange extraction operators for different degrees."""
+        for degree in [1, 2, 3, 4]:
+            knots = [0.0] * (degree + 1) + [1.0] * (degree + 1)
+            tol = 1e-10
+            result = _create_bspline_Lagrange_extraction_impl(
+                np.array(knots, dtype=np.float64), degree, tol
+            )
+
+            # Should have 1 interval, (degree+1)x(degree+1) extraction matrix
+            assert result.shape == (1, degree + 1, degree + 1)
+
+    def test_float32_precision(self) -> None:
+        """Test Lagrange extraction operators with float32 precision."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float32)
+        degree = 2
+        tol = 1e-6
+        result = _create_bspline_Lagrange_extraction_impl(knots, degree, tol)
+
+        assert result.dtype == np.float32
+        assert result.shape == (1, 3, 3)
+
+
+class TestCreateBsplineCardinalExtractionOperators:
+    """Test the create_cardinal_extraction_operators method and implementation."""
+
+    def test_bezier_like_knot_vector(self) -> None:
+        """Test cardinal extraction operators for Bézier-like knot vector."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
+        degree = 2
+        tol = 1e-10
+        result = _create_bspline_cardinal_extraction_impl(knots, degree, tol)
+
+        # Should have 1 interval, 3x3 extraction matrix
+        assert result.shape == (1, 3, 3)
+
+        # For Bézier-like knots (non-cardinal), extraction matrix should not be identity
+        assert not np.allclose(result[0], np.eye(3))
+
+    def test_general_knot_vector(self) -> None:
+        """Test cardinal extraction operators for general knot vector."""
+        knots = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
+        degree = 2
+        tol = 1e-10
+        result = _create_bspline_cardinal_extraction_impl(knots, degree, tol)
+
+        # Should have 2 intervals, 3x3 extraction matrices
+        assert result.shape == (2, 3, 3)
+
+        # Check that matrices are not identity (since not cardinal intervals)
+        assert not np.allclose(result[0], np.eye(3))
+        assert not np.allclose(result[1], np.eye(3))
+
+    def test_cardinal_intervals_identity(self) -> None:
+        """Test that cardinal intervals have identity extraction matrices."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0], dtype=np.float64)
+        degree = 2
+        tol = 1e-10
+        result = _create_bspline_cardinal_extraction_impl(knots, degree, tol)
+
+        # Should have 4 intervals
+        assert result.shape == (4, 3, 3)
+
+        # Get which intervals are cardinal
+        cardinal_intervals = _get_cardinal_intervals_impl(knots, degree, tol)
+
+        # Cardinal intervals should have identity matrices
+        for i in np.where(cardinal_intervals)[0]:
+            np.testing.assert_array_almost_equal(result[i], np.eye(3))
+
+        # Non-cardinal intervals should not be identity
+        for i in np.where(~cardinal_intervals)[0]:
+            assert not np.allclose(result[i], np.eye(3))
+
+    def test_negative_tolerance_error(self) -> None:
+        """Test that negative tolerance raises ValueError."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
+        degree = 2
+        with pytest.raises(ValueError, match="tol must be positive"):
+            _create_bspline_cardinal_extraction_impl(knots, degree, -1.0)
+
+    def test_public_method(self) -> None:
+        """Test the public create_cardinal_extraction_operators method."""
+        knots = [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0]
+        degree = 2
+        spline = Bspline1D(knots, degree)
+        result = spline.create_cardinal_extraction_operators()
+
+        # Should have correct shape
+        assert result.shape == (4, 3, 3)
+
+        # Should match the implementation
+        expected = _create_bspline_cardinal_extraction_impl(
+            np.array(knots, dtype=np.float64), degree, spline.tolerance
+        )
+        np.testing.assert_array_almost_equal(result, expected)
+
+        # Verify cardinal intervals are identity
+        cardinal_intervals = spline.get_cardinal_intervals()
+        for i in np.where(cardinal_intervals)[0]:
+            np.testing.assert_array_almost_equal(result[i], np.eye(3))
+
+    def test_different_degrees(self) -> None:
+        """Test cardinal extraction operators for different degrees."""
+        for degree in [1, 2, 3]:
+            knots = [0.0] * (degree + 1) + [1.0, 2.0] + [3.0] * (degree + 1)
+            tol = 1e-10
+            result = _create_bspline_cardinal_extraction_impl(
+                np.array(knots, dtype=np.float64), degree, tol
+            )
+
+            # Should have correct number of intervals
+            num_intervals = len(knots) - 2 * (degree + 1) + 1
+            assert result.shape == (num_intervals, degree + 1, degree + 1)
+
+    def test_float32_precision(self) -> None:
+        """Test cardinal extraction operators with float32 precision."""
+        knots = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 3.0], dtype=np.float32)
+        degree = 2
+        tol = 1e-6
+        result = _create_bspline_cardinal_extraction_impl(knots, degree, tol)
+
+        assert result.dtype == np.float32
+        assert result.shape == (3, 3, 3)
+
+    def test_all_intervals_cardinal(self) -> None:
+        """Test when all intervals are cardinal (uniform spacing)."""
+        # Create uniform knot vector with cardinal intervals
+        knots = create_uniform_open_knot_vector(num_intervals=3, degree=2, domain=(0.0, 1.0))
+        degree = 2
+        tol = 1e-10
+        result = _create_bspline_cardinal_extraction_impl(knots, degree, tol)
+
+        # Check cardinal intervals
+        cardinal_intervals = _get_cardinal_intervals_impl(knots, degree, tol)
+
+        # All cardinal intervals should be identity
+        for i in np.where(cardinal_intervals)[0]:
+            np.testing.assert_array_almost_equal(result[i], np.eye(3))
 
 
 class TestAdditionalEdgeCases:
@@ -788,12 +1023,12 @@ class TestAdditionalEdgeCases:
         """_is_in_domain_impl raises for negative tol."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
-        with pytest.raises(AssertionError, match="tol must be positive"):
+        with pytest.raises(ValueError, match="tol must be positive"):
             _is_in_domain_impl(knots, degree, np.array([0.0, 0.5]), -1.0)
 
     def test_get_last_knot_smaller_equal_empty_pts(self) -> None:
         """_get_last_knot_smaller_equal_impl empty pts raise."""
-        with pytest.raises(AssertionError, match="pts must have at least one element"):
+        with pytest.raises(ValueError, match="pts must have at least one element"):
             _get_last_knot_smaller_equal_impl(np.array([0.0, 1.0]), np.array([], dtype=float))
 
     def test_eval_basis_cox_de_boor_input_errors(self) -> None:
@@ -801,9 +1036,9 @@ class TestAdditionalEdgeCases:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         periodic = False
-        with pytest.raises(AssertionError, match="tol must be positive"):
+        with pytest.raises(ValueError, match="tol must be positive"):
             _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, -1.0, np.array([0.5]))
-        with pytest.raises(AssertionError, match="pts must have at least one element"):
+        with pytest.raises(ValueError, match="pts must have at least one element"):
             _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, 1e-10, np.array([], dtype=float))
 
     def test_extraction_non_open_left_end_branch(self) -> None:
@@ -812,7 +1047,7 @@ class TestAdditionalEdgeCases:
         knots = np.array([0.0, 0.1, 0.1, 0.5, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        Cs = _create_bspline_Bezier_extraction_operators_impl(knots, degree, tol)
+        Cs = _create_bspline_Bezier_extraction_impl(knots, degree, tol)
         # Shape sanity
         assert Cs.shape[1:] == (degree + 1, degree + 1)
         # The first element matrix should be modified from identity when mult < degree+1
@@ -853,7 +1088,7 @@ class TestAdditionalEdgeCases:
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
         spline = Bspline1D(knots, degree)
-        with pytest.raises(AssertionError, match="B-spline does not have Bézier-like knots"):
+        with pytest.raises(ValueError, match="B-spline does not have Bézier-like knots"):
             _eval_Bspline_basis_Bernstein_like_1D(spline, np.array([0.0, 0.5, 1.0]))
 
 
@@ -893,7 +1128,7 @@ class TestBspline1DCoverageTargets:
         """Cover branch where first-domain multiplicity == 1 (degree=2 => reg=1)."""
         # degree=2, first three knots are all different so multiplicity at index 2 is 1
         knots = np.array([0.0, 0.1, 0.2, 0.6, 1.0, 1.0], dtype=np.float64)
-        Cs = _create_bspline_Bezier_extraction_operators_impl(knots, 2, 1e-10)
+        Cs = _create_bspline_Bezier_extraction_impl(knots, 2, 1e-10)
         # At least one coefficient in the first extraction matrix should differ from identity
         assert Cs.shape[1:] == (3, 3)
         assert not np.allclose(Cs[0], np.eye(3))
@@ -936,3 +1171,120 @@ class TestBspline1DCoverageTargets:
         # Numba dispatcher rejects non-1D arrays at signature level
         with pytest.raises(TypeError):
             _eval_basis_Cox_de_Boor_impl(knots, 2, False, 1e-10, pts)
+
+
+class TestExtractionOperatorCorrectness:
+    """Test correctness of extraction operators.
+
+    Compares transformed basis with B-spline basis.
+    """
+
+    @pytest.mark.parametrize(
+        "extraction_type",
+        ["bezier", "lagrange", "cardinal"],
+    )
+    @pytest.mark.parametrize(
+        "degree",
+        [1, 2, 3, 4],
+    )
+    @pytest.mark.parametrize(
+        "knots_factory",
+        [
+            lambda d: create_uniform_open_knot_vector(num_intervals=2, degree=d),  # 2 intervals
+            lambda d: create_uniform_open_knot_vector(num_intervals=3, degree=d),  # 3 intervals
+            lambda d: [0.0] * (d + 1) + [0.5, 1.0] + [2.0] * (d + 1),  # 2 intervals, different end
+            lambda d: [0.0] * (d + 1)
+            + [0.5] * (d - 1)
+            + [1.3, 2.7]
+            + [3.5] * (d - 1)
+            + [4.0, 5.0]
+            + [6.0] * (d + 1),  # 5 intervals with different continuities
+            lambda d: create_cardinal_Bspline_knot_vector(
+                num_intervals=4, degree=d
+            ),  # cardinal intervals
+        ],
+        ids=[
+            "two_intervals",
+            "three_intervals",
+            "two_intervals_different_end",
+            "five_intervals",
+            "four_cardinal_intervals",
+        ],
+    )
+    def test_extraction_operator_correctness(
+        self,
+        extraction_type: str,
+        degree: int,
+        knots_factory: Callable[[int], list[float]],
+    ) -> None:
+        """Test extraction operator correctness.
+
+        For each interval, evaluate reference basis (Bernstein/Lagrange/cardinal) in [0,1],
+        multiply by extraction operator, and compare with B-spline basis evaluated at
+        mapped physical points.
+
+        Args:
+            extraction_type: Type of extraction operator ("bezier", "lagrange", "cardinal").
+            degree: B-spline degree.
+            knots_factory: Function that takes degree and returns knot vector.
+        """
+        # Generate knot vector from factory
+        knots = knots_factory(degree)
+
+        # Validate that knots match degree
+        min_knots = 2 * degree + 2
+        if len(knots) < min_knots:
+            pytest.skip(f"Knot vector too short for degree {degree}")
+
+        spline = Bspline1D(knots, degree)
+
+        # Get extraction operators based on type
+        if extraction_type == "bezier":
+            C_extraction = spline.create_Bezier_extraction_operators()
+        elif extraction_type == "lagrange":
+            C_extraction = spline.create_Lagrange_extraction_operators()
+        elif extraction_type == "cardinal":
+            C_extraction = spline.create_cardinal_extraction_operators()
+        else:
+            raise ValueError(f"Unknown extraction type: {extraction_type}")
+
+        # Get unique knots to determine intervals
+        unique_knots, _ = spline.get_unique_knots_and_multiplicity(in_domain=True)
+        num_intervals = len(unique_knots) - 1
+
+        # Evaluation points in reference interval [0, 1] (avoid exact boundaries)
+        max_intervals_for_dense = 2
+        num_pts = 11 if num_intervals <= max_intervals_for_dense else 7
+        xi_ref = np.linspace(0.01, 0.99, num_pts, dtype=spline.dtype)
+
+        # For each interval, test the extraction operator
+        for interval_idx in range(num_intervals):
+            # Get interval boundaries
+            t0 = unique_knots[interval_idx]
+            t1 = unique_knots[interval_idx + 1]
+
+            # Map reference points to physical interval
+            x_physical = t0 + (t1 - t0) * xi_ref
+
+            # Evaluate reference basis at reference points
+            if extraction_type == "bezier":
+                B_ref = eval_Bernstein_basis_1D(degree, xi_ref)
+            elif extraction_type == "lagrange":
+                B_ref = eval_Lagrange_basis_1D(degree, LagrangeVariant.EQUISPACES, xi_ref)
+            elif extraction_type == "cardinal":
+                B_ref = eval_cardinal_Bspline_basis_1D(degree, xi_ref)
+            else:
+                raise ValueError(f"Unknown extraction type: {extraction_type}")
+
+            # Transform reference basis using extraction operator
+            # C maps reference basis to B-spline basis: N = C @ B_ref
+            B_transformed = B_ref @ C_extraction[interval_idx].T
+
+            # Evaluate B-spline basis at physical points
+            B_bspline, _ = spline.eval_basis(x_physical)
+
+            # Extract the (degree+1) B-spline basis functions for this interval
+            B_bspline_extracted = B_bspline[:, :]
+
+            # Compare transformed reference basis with B-spline basis
+            np.testing.assert_allclose(B_transformed, B_bspline_extracted, rtol=1e-10, atol=1e-12)

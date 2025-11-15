@@ -8,6 +8,9 @@ from numpy import typing as npt
 
 from ._bspline_1D_impl import (
     _compute_num_basis_impl,
+    _create_bspline_Bezier_extraction_impl,
+    _create_bspline_cardinal_extraction_impl,
+    _create_bspline_Lagrange_extraction_impl,
     _eval_Bspline_basis_1D_impl,
     _get_cardinal_intervals_impl,
     _get_unique_knots_and_multiplicity_impl,
@@ -420,3 +423,48 @@ class Bspline1D:
              array([0, 1, 3, 3]))
         """
         return _eval_Bspline_basis_1D_impl(self, pts)
+
+    def create_Bezier_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
+        """Create Bézier extraction operators of the B-spline.
+
+        Returns:
+            npt.NDArray[np.float32 | np.float64]: Array of extraction matrices with shape
+                (n_intervals, degree+1, degree+1) where each matrix transforms
+                Bernstein basis functions to B-spline basis functions for that interval.
+
+                Each matrix C[i, :, :] transforms Bernstein basis functions
+                to B-spline basis functions for the i-th interval as
+                    C[i, :, :] @ [Bernstein values] = [B-spline values in interval].
+        """
+        return cast(
+            npt.NDArray[np.float32 | np.float64],
+            _create_bspline_Bezier_extraction_impl(self.knots, self.degree, self.tolerance),
+        )
+
+    def create_Lagrange_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
+        """Create Lagrange extraction operators of the B-spline.
+
+        Returns:
+            npt.NDArray[np.float32 | np.float64]: Array of extraction matrices with shape
+                (n_intervals, degree+1, degree+1) where each matrix transforms
+                Lagrange basis functions to B-spline basis functions for that interval.
+
+                Each matrix C[i, :, :] transforms Lagrange basis functions
+                to B-spline basis functions for the i-th interval as
+                    C[i, :, :] @ [Lagrange values] = [B-spline values in interval].
+        """
+        return _create_bspline_Lagrange_extraction_impl(self.knots, self.degree, self.tolerance)
+
+    def create_cardinal_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
+        """Create cardinal B-spline extraction operators of the B-spline.
+
+        Returns:
+            npt.NDArray[np.float32 | np.float64]: Array of extraction matrices with shape
+                (n_intervals, degree+1, degree+1) where each matrix transforms
+                cardinal spline basis functions to B-spline basis functions for that interval.
+
+                Each matrix C[i, :, :] transforms cardinal spline basis functions
+                to B-spline basis functions for the i-th interval as
+                    C[i, :, :] @ [cardinal values] = [B-spline values in interval].
+        """
+        return _create_bspline_cardinal_extraction_impl(self.knots, self.degree, self.tolerance)
