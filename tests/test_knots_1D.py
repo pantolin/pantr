@@ -13,7 +13,7 @@ from pantr._bspline_1D_impl import (
     _get_ends_and_type,
     _validate_knot_input,
 )
-from pantr.bspline_1D import (
+from pantr.bspline_space_1D import (
     create_cardinal_Bspline_knot_vector,
     create_uniform_open_knot_vector,
     create_uniform_periodic_knot_vector,

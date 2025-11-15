@@ -1,4 +1,4 @@
-"""Tests for bspline_1D module."""
+"""Tests for bspline_space_1D module."""
 
 from collections.abc import Callable
 
@@ -25,7 +25,7 @@ from pantr.basis import (
     eval_cardinal_Bspline_basis_1D,
     eval_Lagrange_basis_1D,
 )
-from pantr.bspline_1D import (
+from pantr.bspline_space_1D import (
     BsplineSpace1D,
     create_cardinal_Bspline_knot_vector,
     create_uniform_open_knot_vector,
@@ -1093,7 +1093,7 @@ class TestAdditionalEdgeCases:
 
 
 class TestBsplineSpace1DCoverageTargets:
-    """Additional tests to hit uncovered branches in bspline_1D.py."""
+    """Additional tests to hit uncovered branches in bspline_space_1D.py."""
 
     def test_validate_input_2d_array_type_error(self) -> None:
         """2D numpy array for knots should raise TypeError at ndim check."""

@@ -23,7 +23,7 @@ from .change_basis_1D import (
 )
 
 if TYPE_CHECKING:
-    from .bspline_1D import BsplineSpace1D
+    from .bspline_space_1D import BsplineSpace1D
 
 nb_Tuple = nb_types.Tuple
 nb_bool = nb_types.boolean
