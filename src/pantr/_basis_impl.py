@@ -454,8 +454,7 @@ def _basis_combinator_lattice(
         raise ValueError("The number of evaluators must be equal to the dimension of the points.")
 
     # Same ordering (C or F) is used for both points and functions.
-    order_str = "ji" if order == "F" else "ij"
-    op_str = f"pi,qj->{order_str}{order_str}"
+    op_str = "pi,qj->qpji" if order == "F" else "pi,qj->pqij"
 
     pts_per_dir = pts.pts_per_dir
     out = evaluators_1D[0](pts_per_dir[0])
@@ -463,6 +462,9 @@ def _basis_combinator_lattice(
         vals_1D = evaluators_1D[dir](pts_per_dir[dir])
         n_rows = out.shape[0] * vals_1D.shape[0]
         n_cols = out.shape[1] * vals_1D.shape[1]
+        # einsum produces (n_pts_0, n_pts_1, n_basis_0, n_basis_1)
+        # or (n_pts_1, n_pts_0, n_basis_1, n_basis_0).
+        # This is then reshaped to (n_pts_total, n_basis_total) according to the order.
         out = np.einsum(op_str, out, vals_1D).reshape(n_rows, n_cols)
 
     return out
