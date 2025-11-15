@@ -11,7 +11,10 @@ import numpy.typing as npt
 import pytest
 from numpy.polynomial import chebyshev
 
+from pantr.basis import LagrangeVariant
 from pantr.quad import (
+    PointsLattice,
+    create_Lagrange_points_lattice,
     get_chebyshev_gauss_1st_kind_quadrature_1D,
     get_chebyshev_gauss_2nd_kind_quadrature_1D,
     get_gauss_legendre_quadrature_1D,
@@ -194,3 +197,211 @@ class TestChebyshevGaussSecondKind:
             np.sum(weights), np.array(np.pi / 4.0, dtype=dtype), rtol=get_strict_tolerance(dtype)
         )
         assert np.all((nodes >= 0.0) & (nodes <= 1.0))
+
+
+class TestPointsLattice:
+    """Tests for PointsLattice class."""
+
+    def test_empty_iterable_raises(self) -> None:
+        with pytest.raises(ValueError, match="at least 1 dimension"):
+            PointsLattice([])
+
+    def test_different_dtypes_raises(self) -> None:
+        pts1 = np.array([0.0, 0.5, 1.0], dtype=np.float32)
+        pts2 = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+        with pytest.raises(ValueError, match="same dtype"):
+            PointsLattice([pts1, pts2])
+
+    def test_non_1d_points_raises(self) -> None:
+        pts1 = np.array([0.0, 0.5, 1.0])
+        pts2 = np.array([[0.0, 0.5], [1.0, 1.5]])
+        with pytest.raises(ValueError, match="must be 1D"):
+            PointsLattice([pts1, pts2])
+
+    def test_empty_points_raises(self) -> None:
+        pts1 = np.array([0.0, 0.5, 1.0])
+        pts2 = np.array([])
+        with pytest.raises(ValueError, match="at least 1 point"):
+            PointsLattice([pts1, pts2])
+
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_1d_lattice_properties(self, dtype: npt.DTypeLike) -> None:
+        pts = np.array([0.0, 0.5, 1.0], dtype=dtype)
+        lattice = PointsLattice([pts])
+        assert lattice.dim == 1
+        assert lattice.dtype == np.dtype(dtype)
+        assert len(lattice.pts_per_dir) == 1
+        nptest.assert_array_equal(lattice.pts_per_dir[0], pts)
+
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_2d_lattice_properties(self, dtype: npt.DTypeLike) -> None:
+        pts_x = np.array([0.0, 0.5, 1.0], dtype=dtype)
+        pts_y = np.array([0.0, 1.0], dtype=dtype)
+        pts_dir = [pts_x, pts_y]
+        lattice = PointsLattice(pts_dir)
+        assert lattice.dim == len(pts_dir)
+        assert lattice.dtype == np.dtype(dtype)
+        assert len(lattice.pts_per_dir) == len(pts_dir)
+        nptest.assert_array_equal(lattice.pts_per_dir[0], pts_x)
+        nptest.assert_array_equal(lattice.pts_per_dir[1], pts_y)
+
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_3d_lattice_properties(self, dtype: npt.DTypeLike) -> None:
+        pts_x = np.array([0.0, 1.0], dtype=dtype)
+        pts_y = np.array([0.0, 0.5, 1.0], dtype=dtype)
+        pts_z = np.array([0.0, 1.0], dtype=dtype)
+        pts_dir = [pts_x, pts_y, pts_z]
+        lattice = PointsLattice(pts_dir)
+        assert lattice.dim == len(pts_dir)
+        assert lattice.dtype == np.dtype(dtype)
+        assert len(lattice.pts_per_dir) == len(pts_dir)
+        nptest.assert_array_equal(lattice.pts_per_dir[0], pts_x)
+        nptest.assert_array_equal(lattice.pts_per_dir[1], pts_y)
+        nptest.assert_array_equal(lattice.pts_per_dir[2], pts_z)
+
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_get_all_points_1d_c_order(self, dtype: npt.DTypeLike) -> None:
+        pts = np.array([0.0, 0.5, 1.0], dtype=dtype)
+        lattice = PointsLattice([pts])
+        all_pts = lattice.get_all_points(order="C")
+        assert all_pts.shape == (3, 1)
+        nptest.assert_array_equal(all_pts[:, 0], pts)
+
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_get_all_points_1d_f_order(self, dtype: npt.DTypeLike) -> None:
+        pts = np.array([0.0, 0.5, 1.0], dtype=dtype)
+        lattice = PointsLattice([pts])
+        all_pts = lattice.get_all_points(order="F")
+        assert all_pts.shape == (3, 1)
+        nptest.assert_array_equal(all_pts[:, 0], pts)
+
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_get_all_points_2d_c_order(self, dtype: npt.DTypeLike) -> None:
+        pts_x = np.array([0.0, 1.0], dtype=dtype)
+        pts_y = np.array([0.0, 0.5, 1.0], dtype=dtype)
+        lattice = PointsLattice([pts_x, pts_y])
+        all_pts = lattice.get_all_points(order="C")
+        assert all_pts.shape == (6, 2)
+        # C order: last index varies fastest
+        expected = np.array(
+            [
+                [0.0, 0.0],
+                [0.0, 0.5],
+                [0.0, 1.0],
+                [1.0, 0.0],
+                [1.0, 0.5],
+                [1.0, 1.0],
+            ],
+            dtype=dtype,
+        )
+        nptest.assert_array_equal(all_pts, expected)
+
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_get_all_points_2d_f_order(self, dtype: npt.DTypeLike) -> None:
+        pts_x = np.array([0.0, 1.0], dtype=dtype)
+        pts_y = np.array([0.0, 0.5, 1.0], dtype=dtype)
+        lattice = PointsLattice([pts_x, pts_y])
+        all_pts = lattice.get_all_points(order="F")
+        assert all_pts.shape == (6, 2)
+        # F order: first index varies fastest
+        expected = np.array(
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [0.0, 0.5],
+                [1.0, 0.5],
+                [0.0, 1.0],
+                [1.0, 1.0],
+            ],
+            dtype=dtype,
+        )
+        nptest.assert_array_equal(all_pts, expected)
+
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_get_all_points_3d_c_order(self, dtype: npt.DTypeLike) -> None:
+        pts_x = np.array([0.0, 1.0], dtype=dtype)
+        pts_y = np.array([0.0, 1.0], dtype=dtype)
+        pts_z = np.array([0.0, 1.0], dtype=dtype)
+        lattice = PointsLattice([pts_x, pts_y, pts_z])
+        all_pts = lattice.get_all_points(order="C")
+        assert all_pts.shape == (8, 3)
+        # C order: last index (z) varies fastest
+        assert np.allclose(all_pts[0], [0.0, 0.0, 0.0])
+        assert np.allclose(all_pts[1], [0.0, 0.0, 1.0])
+        assert np.allclose(all_pts[2], [0.0, 1.0, 0.0])
+        assert np.allclose(all_pts[3], [0.0, 1.0, 1.0])
+        assert np.allclose(all_pts[4], [1.0, 0.0, 0.0])
+        assert np.allclose(all_pts[5], [1.0, 0.0, 1.0])
+        assert np.allclose(all_pts[6], [1.0, 1.0, 0.0])
+        assert np.allclose(all_pts[7], [1.0, 1.0, 1.0])
+
+
+class TestCreateLagrangePointsLattice:
+    """Tests for create_Lagrange_points_lattice function."""
+
+    def test_invalid_n_pts_raises(self) -> None:
+        with pytest.raises(ValueError, match="at least 1"):
+            create_Lagrange_points_lattice(LagrangeVariant.EQUISPACES, [0])
+
+    def test_invalid_n_pts_in_list_raises(self) -> None:
+        with pytest.raises(ValueError, match="at least 1"):
+            create_Lagrange_points_lattice(LagrangeVariant.EQUISPACES, [2, 0, 3])
+
+    @pytest.mark.parametrize("variant", list(LagrangeVariant))
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_1d_lattice_creation(self, variant: LagrangeVariant, dtype: npt.DTypeLike) -> None:
+        n = [3]
+        lattice = create_Lagrange_points_lattice(variant, n, dtype)
+        assert lattice.dim == len(n)
+        assert lattice.dtype == np.dtype(dtype)
+        assert len(lattice.pts_per_dir[0]) == n[0]
+        # Points should be in [0, 1]
+        assert np.all((lattice.pts_per_dir[0] >= 0.0) & (lattice.pts_per_dir[0] <= 1.0))
+
+    @pytest.mark.parametrize("variant", list(LagrangeVariant))
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_2d_lattice_creation(self, variant: LagrangeVariant, dtype: npt.DTypeLike) -> None:
+        n = [3, 4]
+        lattice = create_Lagrange_points_lattice(variant, n, dtype)
+        assert lattice.dim == len(n)
+        assert lattice.dtype == np.dtype(dtype)
+        assert len(lattice.pts_per_dir[0]) == n[0]
+        assert len(lattice.pts_per_dir[1]) == n[1]
+        # Points should be in [0, 1]
+        assert np.all((lattice.pts_per_dir[0] >= 0.0) & (lattice.pts_per_dir[0] <= 1.0))
+        assert np.all((lattice.pts_per_dir[1] >= 0.0) & (lattice.pts_per_dir[1] <= 1.0))
+
+    @pytest.mark.parametrize("variant", list(LagrangeVariant))
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_3d_lattice_creation(self, variant: LagrangeVariant, dtype: npt.DTypeLike) -> None:
+        n = [2, 3, 4]
+        lattice = create_Lagrange_points_lattice(variant, n, dtype)
+        assert lattice.dim == len(n)
+        assert lattice.dtype == np.dtype(dtype)
+        assert len(lattice.pts_per_dir[0]) == n[0]
+        assert len(lattice.pts_per_dir[1]) == n[1]
+        assert len(lattice.pts_per_dir[2]) == n[2]
+
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_equispaced_points(self, dtype: npt.DTypeLike) -> None:
+        lattice = create_Lagrange_points_lattice(LagrangeVariant.EQUISPACES, [4], dtype)
+        expected = np.array([0.0, 1.0 / 3.0, 2.0 / 3.0, 1.0], dtype=dtype)
+        nptest.assert_allclose(lattice.pts_per_dir[0], expected, rtol=get_strict_tolerance(dtype))
+
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_gauss_lobatto_legendre_endpoints(self, dtype: npt.DTypeLike) -> None:
+        lattice = create_Lagrange_points_lattice(LagrangeVariant.GAUSS_LOBATTO_LEGENDRE, [4], dtype)
+        pts = lattice.pts_per_dir[0]
+        # GLL should include endpoints
+        nptest.assert_allclose(pts[0], np.array(0.0, dtype=dtype), rtol=get_strict_tolerance(dtype))
+        nptest.assert_allclose(
+            pts[-1], np.array(1.0, dtype=dtype), rtol=get_strict_tolerance(dtype)
+        )
+
+    @pytest.mark.parametrize("dtype", [np.float32, np.float64])
+    def test_get_all_points_from_lattice(self, dtype: npt.DTypeLike) -> None:
+        lattice = create_Lagrange_points_lattice(LagrangeVariant.EQUISPACES, [2, 3], dtype)
+        all_pts = lattice.get_all_points(order="C")
+        assert all_pts.shape == (6, 2)
+        # Verify all points are in [0, 1]
+        assert np.all((all_pts >= 0.0) & (all_pts <= 1.0))

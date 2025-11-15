@@ -1,15 +1,23 @@
 """Basis function evaluation for various polynomial bases."""
 
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable
 from enum import Enum
+from typing import TYPE_CHECKING, Literal, cast
 
 import numpy as np
 import numpy.typing as npt
 
 from ._basis_impl import (
+    _basis_1D_combinator,
     _eval_Bernstein_basis_1D_impl,
     _eval_cardinal_Bspline_basis_1D_impl,
     _eval_Lagrange_basis_1D_impl,
 )
+
+if TYPE_CHECKING:
+    from .quad import PointsLattice
 
 
 class LagrangeVariant(Enum):
@@ -132,3 +140,116 @@ def eval_Lagrange_basis_1D(
         ValueError: If provided degree is negative.
     """
     return _eval_Lagrange_basis_1D_impl(degree, variant, pts)
+
+
+def eval_Bernstein_basis(
+    degrees: Iterable[int],
+    pts: npt.ArrayLike | PointsLattice,
+    funcs_order: Literal["C", "F"] = "C",
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Evaluate the Bernstein basis functions at the given points.
+
+    Evaluates Bernstein basis functions by combining 1D basis values across each dimension,
+    supporting both general points (e.g., a 2D array of shape (n_pts, dim) for scattered points)
+    and point lattices (points in tensor-product grids).
+    Fully supports C/F-ordering for functions and points.
+
+    Args:
+        degrees (Iterable[int]): Iterable of degrees of the B-spline basis functions.
+        pts (npt.ArrayLike | PointsLattice): Points at which to evaluate the basis.
+            It can be a 2D array of shape (n_points, dim) for scattered points,
+            or a PointsLattice object.
+        funcs_order (Literal["C", "F"]): Ordering of the basis functions: 'C' for C-order
+            (last index varies fastest) or 'F' for Fortran-order (first index varies fastest).
+            Defaults to 'C'.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Array of shape (n_points, n_basis_functions)
+        containing the combined basis function values.
+
+    Raises:
+        ValueError: If any degree is negative.
+    """
+    if not all(isinstance(degree, int) and degree >= 0 for degree in degrees):
+        raise ValueError("All degrees must be non-negative integers")
+    evaluators_1D = cast(
+        tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]],
+        tuple(lambda pts, d=degree: eval_Bernstein_basis_1D(d, pts) for degree in degrees),
+    )
+    return _basis_1D_combinator(evaluators_1D, pts, funcs_order)
+
+
+def eval_cardinal_Bspline_basis(
+    degrees: Iterable[int],
+    pts: npt.ArrayLike | PointsLattice,
+    funcs_order: Literal["C", "F"] = "C",
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Evaluate the cardinal B-spline basis functions at the given points.
+
+    Evaluates cardinal B-spline basis functions by combining 1D basis values across each dimension,
+    supporting both general points (e.g., a 2D array of shape (n_pts, dim) for scattered points)
+    and point lattices (points in tensor-product grids).
+    Fully supports C/F-ordering for functions and points.
+
+    Args:
+        degrees (Iterable[int]): Iterable of degrees of the cardinal B-spline basis functions.
+        pts (npt.ArrayLike | PointsLattice): Points at which to evaluate the basis.
+            It can be a 2D array of shape (n_points, dim) for scattered points,
+            or a PointsLattice object.
+        funcs_order (Literal["C", "F"]): Ordering of the basis functions: 'C' for C-order
+            (last index varies fastest) or 'F' for Fortran-order (first index varies fastest).
+            Defaults to 'C'.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Array of shape (n_points, n_basis_functions)
+        containing the combined basis function values.
+
+    Raises:
+        ValueError: If any degree is negative.
+    """
+    if not all(isinstance(degree, int) and degree >= 0 for degree in degrees):
+        raise ValueError("All degrees must be non-negative integers")
+    evaluators_1D = cast(
+        tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]],
+        tuple(lambda pts, d=degree: eval_cardinal_Bspline_basis_1D(d, pts) for degree in degrees),
+    )
+    return _basis_1D_combinator(evaluators_1D, pts, funcs_order)
+
+
+def eval_Lagrange_basis(
+    degrees: Iterable[int],
+    variant: LagrangeVariant,
+    pts: npt.ArrayLike | PointsLattice,
+    funcs_order: Literal["C", "F"] = "C",
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Evaluate the Lagrange basis functions at the given points.
+
+    Evaluates Lagrange basis functions by combining 1D basis values across each dimension,
+    supporting both general points (e.g., a 2D array of shape (n_pts, dim) for scattered points)
+    and point lattices (points in tensor-product grids).
+    Fully supports C/F-ordering for functions and points.
+
+    Args:
+        degrees (Iterable[int]): Iterable of degrees of the Lagrange basis functions.
+        variant (LagrangeVariant): Variant of the Lagrange basis.
+        pts (npt.ArrayLike | PointsLattice): Points at which to evaluate the basis.
+            It can be a 2D array of shape (n_points, dim) for scattered points,
+            or a PointsLattice object.
+        funcs_order (Literal["C", "F"]): Ordering of the basis functions: 'C' for C-order
+            (last index varies fastest) or 'F' for Fortran-order (first index varies fastest).
+            Defaults to 'C'.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Array of shape (n_points, n_basis_functions)
+        containing the combined basis function values.
+
+    Raises:
+        ValueError: If any degree is negative.
+    """
+    if not all(isinstance(degree, int) and degree >= 0 for degree in degrees):
+        raise ValueError("All degrees must be non-negative integers")
+    evaluators_1D = cast(
+        tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]],
+        tuple(lambda pts, d=degree: eval_Lagrange_basis_1D(d, variant, pts) for degree in degrees),
+    )
+    return _basis_1D_combinator(evaluators_1D, pts, funcs_order)
