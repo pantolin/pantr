@@ -6,7 +6,7 @@ from typing import cast
 import numpy as np
 from numpy import typing as npt
 
-from ._bspline_1D_impl import (
+from ._bspline_space_1D_impl import (
     _compute_num_basis_impl,
     _create_bspline_Bezier_extraction_impl,
     _create_bspline_cardinal_extraction_impl,
