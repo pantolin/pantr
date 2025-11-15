@@ -549,3 +549,61 @@ def test_partition_of_unity_lagrange_variants(variant: LagrangeVariant) -> None:
     sums = np.sum(result, axis=-1)
     rtol = get_default_tolerance(np.float64)
     nptest.assert_allclose(sums, 1.0, rtol=rtol, atol=0.0)
+
+
+@pytest.mark.parametrize(
+    "basis_type", [BasisType.BERNSTEIN, BasisType.CARDINAL_BSPLINE, BasisType.LAGRANGE]
+)
+@pytest.mark.parametrize("degrees", [[1, 1, 1], [2, 2, 2], [1, 2, 3], [3, 2, 1], [0, 1, 2]])
+def test_3d_array_single_degree(basis_type: BasisType, degrees: list[int]) -> None:
+    """Test 3D array input with various degree combinations."""
+    pts = np.array(
+        [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [1.0, 1.0, 1.0], [0.25, 0.75, 0.5]],
+        dtype=np.float64,
+    )
+    variant = LagrangeVariant.EQUISPACES if basis_type == BasisType.LAGRANGE else None
+    result = _call_basis_function(basis_type, degrees, pts, variant)
+    # Expected shape: (n_points, n_basis_functions)
+    # n_basis_functions = (degrees[0] + 1) * (degrees[1] + 1) * (degrees[2] + 1)
+    expected_n_basis = (degrees[0] + 1) * (degrees[1] + 1) * (degrees[2] + 1)
+    assert result.shape == (4, expected_n_basis)
+    # Verify by comparing with manual computation using einsum
+    basis_x = _call_basis_1d_function(basis_type, degrees[0], pts[:, 0], variant)
+    basis_y = _call_basis_1d_function(basis_type, degrees[1], pts[:, 1], variant)
+    basis_z = _call_basis_1d_function(basis_type, degrees[2], pts[:, 2], variant)
+    expected = np.einsum("pi,pj,pk->pijk", basis_x, basis_y, basis_z).reshape(4, expected_n_basis)
+    if basis_type == BasisType.LAGRANGE:
+        rtol = get_default_tolerance(np.float64)
+        nptest.assert_allclose(result, expected, rtol=rtol, atol=0.0)
+    else:
+        nptest.assert_allclose(result, expected)
+
+
+@pytest.mark.parametrize(
+    "variant",
+    [
+        LagrangeVariant.EQUISPACES,
+        LagrangeVariant.GAUSS_LEGENDRE,
+        LagrangeVariant.GAUSS_LOBATTO_LEGENDRE,
+        LagrangeVariant.CHEBYSHEV_1ST,
+        LagrangeVariant.CHEBYSHEV_2ND,
+    ],
+)
+@pytest.mark.parametrize("degrees", [[1, 1, 1], [2, 2, 2], [1, 2, 3], [3, 2, 1]])
+def test_3d_array_lagrange_variants(variant: LagrangeVariant, degrees: list[int]) -> None:
+    """Test 3D array input with various degree combinations for Lagrange variants."""
+    pts = np.array(
+        [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5], [1.0, 1.0, 1.0], [0.25, 0.75, 0.5]],
+        dtype=np.float64,
+    )
+    result = _call_basis_function(BasisType.LAGRANGE, degrees, pts, variant)
+    # Expected shape: (n_points, n_basis_functions)
+    expected_n_basis = (degrees[0] + 1) * (degrees[1] + 1) * (degrees[2] + 1)
+    assert result.shape == (4, expected_n_basis)
+    # Verify by comparing with manual computation using einsum
+    basis_x = _call_basis_1d_function(BasisType.LAGRANGE, degrees[0], pts[:, 0], variant)
+    basis_y = _call_basis_1d_function(BasisType.LAGRANGE, degrees[1], pts[:, 1], variant)
+    basis_z = _call_basis_1d_function(BasisType.LAGRANGE, degrees[2], pts[:, 2], variant)
+    expected = np.einsum("pi,pj,pk->pijk", basis_x, basis_y, basis_z).reshape(4, expected_n_basis)
+    rtol = get_default_tolerance(np.float64)
+    nptest.assert_allclose(result, expected, rtol=rtol, atol=0.0)
