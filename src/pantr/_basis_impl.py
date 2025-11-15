@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
 
 import numba as nb
 import numpy as np
@@ -12,6 +12,7 @@ from scipy.interpolate import BarycentricInterpolator
 
 from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
 from .quad import (
+    PointsLattice,
     get_chebyshev_gauss_1st_kind_quadrature_1D,
     get_chebyshev_gauss_2nd_kind_quadrature_1D,
     get_gauss_legendre_quadrature_1D,
@@ -415,3 +416,147 @@ def _eval_Lagrange_basis_1D_impl(
             B[rows, cols] = 1.0
 
     return _normalize_basis_output_1D(B, input_shape)
+
+
+def _basis_combinator_lattice(
+    evaluators_1D: tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]],
+    pts: PointsLattice,
+    order: Literal["C", "F"] = "C",
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Combine 1D basis functions evaluated at a points lattice.
+
+    This function efficiently evaluates a set of 1D basis functions at a tensor-product grid
+    of points, exploiting the structured nature of the grid to minimize redundant computation.
+    It handles both C-order (last index varies fastest) and F-order (first index varies fastest)
+    meshgrid layouts, and correctly combines the results according to the specified function
+    and point orderings.
+
+    Args:
+        evaluators_1D (tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]]):
+            Tuple of 1D basis function evaluators.
+            Each evaluator takes a 1D array of points and returns an array of basis function values.
+        pts (PointsLattice): Points lattice.
+        order (Literal["C", "F"]): Ordering of the basis functions and points:
+            'F' for Fortran-order (first index varies fastest),
+            'C' for C-order (last index varies fastest). Default is 'C'.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Array of shape (n_points, n_basis_functions)
+        containing the combined basis function values. Both dimensions (points and basis functions)
+        are ordered according to the specified order.
+
+    Raises:
+        ValueError: If the dimension of the points is less than 1,
+        or the number of evaluators is not equal to the dimension of the points.
+    """
+    dim = pts.dim
+    if dim != len(evaluators_1D):
+        raise ValueError("The number of evaluators must be equal to the dimension of the points.")
+
+    # Same ordering (C or F) is used for both points and functions.
+    order_str = "ji" if order == "F" else "ij"
+    op_str = f"pi,qj->{order_str}{order_str}"
+
+    pts_per_dir = pts.pts_per_dir
+    out = evaluators_1D[0](pts_per_dir[0])
+    for dir in range(1, dim):
+        vals_1D = evaluators_1D[dir](pts_per_dir[dir])
+        n_rows = out.shape[0] * vals_1D.shape[0]
+        n_cols = out.shape[1] * vals_1D.shape[1]
+        out = np.einsum(op_str, out, vals_1D).reshape(n_rows, n_cols)
+
+    return out
+
+
+def _basis_combinator_array(
+    evaluators_1D: tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]],
+    pts: npt.ArrayLike,
+    funcs_order: Literal["C", "F"] = "C",
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Evaluate and combine 1D basis functions at a collection of points.
+
+    Args:
+        evaluators_1D (tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]]):
+            Tuple of 1D basis function evaluators.
+            Each evaluator takes a 1D array of points and returns an array of basis function values.
+        pts (npt.ArrayLike): Points to evaluate the basis functions at.
+        funcs_order (Literal["C", "F"]): Ordering of the basis functions: 'F' for Fortran-order
+            (first index varies fastest) or 'C' for C-order (last index varies fastest).
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Array of shape (n_points, n_basis_functions)
+        containing the combined basis function values.
+
+    Raises:
+        ValueError: If the dimension of the points is not 2,
+        the dtype of the points is not float32 or float64,
+        or the number of evaluators is less than 1,
+        or is not equal to the dimension of the points.
+    """
+    if not isinstance(pts, np.ndarray):
+        pts = np.array(pts)
+
+    if pts.ndim != 2:  # noqa: PLR2004
+        raise ValueError("Input points must be a 2D array.")
+
+    if pts.dtype not in (np.float32, np.float64):
+        pts = pts.astype(np.float64)
+
+    dim = pts.shape[1]
+    if dim < 1:
+        raise ValueError("The dimension of the points must be at least 1.")
+    if len(evaluators_1D) != dim:
+        raise ValueError("The number of evaluators must be equal to the dimension of the points.")
+
+    funcs_order_str = "ji" if funcs_order == "F" else "ij"
+    op_str = f"pi,pj->p{funcs_order_str}"
+    n_pts = pts.shape[0]
+
+    out = evaluators_1D[0](pts[:, 0])
+    for dir in range(1, dim):
+        vals_1D = evaluators_1D[dir](pts[:, dir])
+        out = np.einsum(op_str, out, vals_1D).reshape(n_pts, -1)
+
+    return out
+
+
+def _basis_1D_combinator(
+    evaluators_1D: tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]],
+    pts: npt.ArrayLike | PointsLattice,
+    order: Literal["C", "F"] = "C",
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Combine 1D basis function evaluations into a multidimensional tensor-product basis.
+
+    Evaluates and combines a tuple of 1D basis function evaluators at the given points,
+    supporting both general arrays
+    of points and tensor-product grids (points lattices).
+    Enforces the specified ordering (C or F) for the basis functions
+    (and points in the case of a points lattice).
+
+    Args:
+        evaluators_1D (tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]]):
+            Tuple of 1D basis function evaluators.
+            Each evaluator takes a 1D array of points and returns an array of basis function values.
+        pts (npt.ArrayLike | PointsLattice): Points to evaluate the basis functions at.
+            It may be a general 2D numpy array of points (where each row is a point)
+            or a points lattice.
+        order (str): Ordering of the basis functions (and points in the case of a points lattice):
+            'F' for Fortran-order (first index varies fastest),
+            'C' for C-order (last index varies fastest). Defaults to 'C'.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Array of shape (n_points, n_basis_functions)
+        containing the combined basis function values.
+        Functions are ordered according to the specified order.
+        In the case of a points lattice, points are also ordered according to the specified order.
+
+    Raises:
+        ValueError: If the dimension of the points is not 2,
+        the dtype of the points is not float32 or float64,
+        or the number of evaluators is less than 1,
+        or is not equal to the dimension of the points.
+    """
+    if isinstance(pts, PointsLattice):
+        return _basis_combinator_lattice(evaluators_1D, pts, order)
+    else:
+        return _basis_combinator_array(evaluators_1D, pts, order)
