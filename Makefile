@@ -51,4 +51,4 @@ docs:
 	$(MAKE) -C docs html SPHINXOPTS="$(SPHINXOPTS)"
 
 # Aggregate target to run all checks before creating a pull request
-before-pr: ruff-lint ruff-format ruff-format-check type-check test coverage docs
+pre-pull-request: ruff-lint ruff-format ruff-format-check type-check test coverage docs
