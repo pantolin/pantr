@@ -25,8 +25,8 @@ from pantr.basis import (
     eval_cardinal_Bspline_basis_1D,
     eval_Lagrange_basis_1D,
 )
-from pantr.bspline_1D import Bspline1D
-from pantr.knots import (
+from pantr.bspline_1D import (
+    Bspline1D,
     create_cardinal_Bspline_knot_vector,
     create_uniform_open_knot_vector,
     create_uniform_periodic_knot_vector,
