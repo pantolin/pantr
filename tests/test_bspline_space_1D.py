@@ -7,12 +7,12 @@ import pytest
 
 from pantr._bspline_space_1D_impl import (
     _check_spline_info,
+    _compute_basis_Cox_de_Boor_impl,
+    _compute_Bspline_basis_Bernstein_like_1D,
+    _compute_bspline_Bezier_extraction_impl,
+    _compute_bspline_cardinal_extraction_impl,
+    _compute_bspline_Lagrange_extraction_impl,
     _compute_num_basis_impl,
-    _create_bspline_Bezier_extraction_impl,
-    _create_bspline_cardinal_extraction_impl,
-    _create_bspline_Lagrange_extraction_impl,
-    _eval_basis_Cox_de_Boor_impl,
-    _eval_Bspline_basis_Bernstein_like_1D,
     _get_cardinal_intervals_impl,
     _get_last_knot_smaller_equal_impl,
     _get_multiplicity_of_first_knot_in_domain_impl,
@@ -21,9 +21,9 @@ from pantr._bspline_space_1D_impl import (
 )
 from pantr.basis import (
     LagrangeVariant,
-    eval_Bernstein_basis_1D,
-    eval_cardinal_Bspline_basis_1D,
-    eval_Lagrange_basis_1D,
+    compute_Bernstein_basis_1D,
+    compute_cardinal_Bspline_basis_1D,
+    compute_Lagrange_basis_1D,
 )
 from pantr.bspline_space_1D import (
     BsplineSpace1D,
@@ -648,7 +648,7 @@ class TestGetLastKnotSmallerEqual:
 
 
 class TestEvaluateBasisCoxDeBoor:
-    """Test the _eval_basis_Cox_de_Boor_impl function."""
+    """Test the _compute_basis_Cox_de_Boor_impl function."""
 
     def test_bezier_like_evaluation(self) -> None:
         """Test evaluation for Bézier-like knot vector."""
@@ -658,7 +658,7 @@ class TestEvaluateBasisCoxDeBoor:
         tol = 1e-10
         pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
 
-        basis, first_basis = _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
+        basis, first_basis = _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
 
         # Check shape
         assert basis.shape == (3, 3)
@@ -676,7 +676,7 @@ class TestEvaluateBasisCoxDeBoor:
         tol = 1e-10
         pts = np.array([0.25, 0.75], dtype=np.float64)
 
-        basis, first_basis = _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
+        basis, first_basis = _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
 
         # Check shape
         assert basis.shape == (2, 3)
@@ -694,7 +694,7 @@ class TestEvaluateBasisCoxDeBoor:
         tol = 1e-10
         pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
 
-        basis, first_basis = _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
+        basis, first_basis = _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
 
         # Check shape
         assert basis.shape == (3, 3)
@@ -713,7 +713,7 @@ class TestEvaluateBasisCoxDeBoor:
         pts = np.array([-0.1], dtype=np.float64)
 
         with pytest.raises(ValueError):
-            _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
+            _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
 
 
 class TestGetCardinalIntervals:
@@ -761,7 +761,7 @@ class TestCreateBsplineBezierExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_Bezier_extraction_impl(knots, degree, tol)
+        result = _compute_bspline_Bezier_extraction_impl(knots, degree, tol)
 
         # Should have 1 interval, 3x3 extraction matrix
         assert result.shape == (1, 3, 3)
@@ -774,7 +774,7 @@ class TestCreateBsplineBezierExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_Bezier_extraction_impl(knots, degree, tol)
+        result = _compute_bspline_Bezier_extraction_impl(knots, degree, tol)
 
         # Should have 2 intervals, 3x3 extraction matrices
         assert result.shape == (2, 3, 3)
@@ -788,34 +788,34 @@ class TestCreateBsplineBezierExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         with pytest.raises(ValueError, match="tol must be positive"):
-            _create_bspline_Bezier_extraction_impl(knots, degree, -1.0)
+            _compute_bspline_Bezier_extraction_impl(knots, degree, -1.0)
 
     def test_public_method(self) -> None:
-        """Test the public create_Bezier_extraction_operators method."""
+        """Test the public compute_Bezier_extraction_operators method."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
         spline = BsplineSpace1D(knots, degree)
-        result = spline.create_Bezier_extraction_operators()
+        result = spline.compute_Bezier_extraction_operators()
 
         # Should have correct shape
         assert result.shape == (2, 3, 3)
 
         # Should match the implementation
-        expected = _create_bspline_Bezier_extraction_impl(
+        expected = _compute_bspline_Bezier_extraction_impl(
             np.array(knots, dtype=np.float64), degree, spline.tolerance
         )
         np.testing.assert_array_almost_equal(result, expected)
 
 
 class TestCreateBsplineLagrangeExtractionOperators:
-    """Test the create_Lagrange_extraction_operators method and implementation."""
+    """Test the compute_Lagrange_extraction_operators method and implementation."""
 
     def test_bezier_like_knot_vector(self) -> None:
         """Test Lagrange extraction operators for Bézier-like knot vector."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_Lagrange_extraction_impl(knots, degree, tol)
+        result = _compute_bspline_Lagrange_extraction_impl(knots, degree, tol)
 
         # Should have 1 interval, 3x3 extraction matrix
         assert result.shape == (1, 3, 3)
@@ -829,7 +829,7 @@ class TestCreateBsplineLagrangeExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_Lagrange_extraction_impl(knots, degree, tol)
+        result = _compute_bspline_Lagrange_extraction_impl(knots, degree, tol)
 
         # Should have 2 intervals, 3x3 extraction matrices
         assert result.shape == (2, 3, 3)
@@ -843,7 +843,7 @@ class TestCreateBsplineLagrangeExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 3.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_Lagrange_extraction_impl(knots, degree, tol)
+        result = _compute_bspline_Lagrange_extraction_impl(knots, degree, tol)
 
         # Should have 3 intervals, 3x3 extraction matrices
         assert result.shape == (3, 3, 3)
@@ -857,20 +857,20 @@ class TestCreateBsplineLagrangeExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         with pytest.raises(ValueError, match="tol must be positive"):
-            _create_bspline_Lagrange_extraction_impl(knots, degree, -1.0)
+            _compute_bspline_Lagrange_extraction_impl(knots, degree, -1.0)
 
     def test_public_method(self) -> None:
-        """Test the public create_Lagrange_extraction_operators method."""
+        """Test the public compute_Lagrange_extraction_operators method."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
         spline = BsplineSpace1D(knots, degree)
-        result = spline.create_Lagrange_extraction_operators()
+        result = spline.compute_Lagrange_extraction_operators()
 
         # Should have correct shape
         assert result.shape == (2, 3, 3)
 
         # Should match the implementation
-        expected = _create_bspline_Lagrange_extraction_impl(
+        expected = _compute_bspline_Lagrange_extraction_impl(
             np.array(knots, dtype=np.float64), degree, spline.tolerance
         )
         np.testing.assert_array_almost_equal(result, expected)
@@ -880,7 +880,7 @@ class TestCreateBsplineLagrangeExtractionOperators:
         for degree in [1, 2, 3, 4]:
             knots = [0.0] * (degree + 1) + [1.0] * (degree + 1)
             tol = 1e-10
-            result = _create_bspline_Lagrange_extraction_impl(
+            result = _compute_bspline_Lagrange_extraction_impl(
                 np.array(knots, dtype=np.float64), degree, tol
             )
 
@@ -892,21 +892,21 @@ class TestCreateBsplineLagrangeExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float32)
         degree = 2
         tol = 1e-6
-        result = _create_bspline_Lagrange_extraction_impl(knots, degree, tol)
+        result = _compute_bspline_Lagrange_extraction_impl(knots, degree, tol)
 
         assert result.dtype == np.float32
         assert result.shape == (1, 3, 3)
 
 
 class TestCreateBsplineCardinalExtractionOperators:
-    """Test the create_cardinal_extraction_operators method and implementation."""
+    """Test the compute_cardinal_extraction_operators method and implementation."""
 
     def test_bezier_like_knot_vector(self) -> None:
         """Test cardinal extraction operators for Bézier-like knot vector."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_cardinal_extraction_impl(knots, degree, tol)
+        result = _compute_bspline_cardinal_extraction_impl(knots, degree, tol)
 
         # Should have 1 interval, 3x3 extraction matrix
         assert result.shape == (1, 3, 3)
@@ -919,7 +919,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_cardinal_extraction_impl(knots, degree, tol)
+        result = _compute_bspline_cardinal_extraction_impl(knots, degree, tol)
 
         # Should have 2 intervals, 3x3 extraction matrices
         assert result.shape == (2, 3, 3)
@@ -933,7 +933,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _create_bspline_cardinal_extraction_impl(knots, degree, tol)
+        result = _compute_bspline_cardinal_extraction_impl(knots, degree, tol)
 
         # Should have 4 intervals
         assert result.shape == (4, 3, 3)
@@ -954,20 +954,20 @@ class TestCreateBsplineCardinalExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         with pytest.raises(ValueError, match="tol must be positive"):
-            _create_bspline_cardinal_extraction_impl(knots, degree, -1.0)
+            _compute_bspline_cardinal_extraction_impl(knots, degree, -1.0)
 
     def test_public_method(self) -> None:
-        """Test the public create_cardinal_extraction_operators method."""
+        """Test the public compute_cardinal_extraction_operators method."""
         knots = [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0]
         degree = 2
         spline = BsplineSpace1D(knots, degree)
-        result = spline.create_cardinal_extraction_operators()
+        result = spline.compute_cardinal_extraction_operators()
 
         # Should have correct shape
         assert result.shape == (4, 3, 3)
 
         # Should match the implementation
-        expected = _create_bspline_cardinal_extraction_impl(
+        expected = _compute_bspline_cardinal_extraction_impl(
             np.array(knots, dtype=np.float64), degree, spline.tolerance
         )
         np.testing.assert_array_almost_equal(result, expected)
@@ -982,7 +982,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         for degree in [1, 2, 3]:
             knots = [0.0] * (degree + 1) + [1.0, 2.0] + [3.0] * (degree + 1)
             tol = 1e-10
-            result = _create_bspline_cardinal_extraction_impl(
+            result = _compute_bspline_cardinal_extraction_impl(
                 np.array(knots, dtype=np.float64), degree, tol
             )
 
@@ -995,7 +995,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 3.0], dtype=np.float32)
         degree = 2
         tol = 1e-6
-        result = _create_bspline_cardinal_extraction_impl(knots, degree, tol)
+        result = _compute_bspline_cardinal_extraction_impl(knots, degree, tol)
 
         assert result.dtype == np.float32
         assert result.shape == (3, 3, 3)
@@ -1006,7 +1006,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         knots = create_uniform_open_knot_vector(num_intervals=3, degree=2, domain=(0.0, 1.0))
         degree = 2
         tol = 1e-10
-        result = _create_bspline_cardinal_extraction_impl(knots, degree, tol)
+        result = _compute_bspline_cardinal_extraction_impl(knots, degree, tol)
 
         # Check cardinal intervals
         cardinal_intervals = _get_cardinal_intervals_impl(knots, degree, tol)
@@ -1031,15 +1031,17 @@ class TestAdditionalEdgeCases:
         with pytest.raises(ValueError, match="pts must have at least one element"):
             _get_last_knot_smaller_equal_impl(np.array([0.0, 1.0]), np.array([], dtype=float))
 
-    def test_eval_basis_cox_de_boor_input_errors(self) -> None:
-        """_eval_basis_Cox_de_Boor_impl should validate tol and pts shape/size."""
+    def test_compute_basis_cox_de_boor_input_errors(self) -> None:
+        """_compute_basis_Cox_de_Boor_impl should validate tol and pts shape/size."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         periodic = False
         with pytest.raises(ValueError, match="tol must be positive"):
-            _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, -1.0, np.array([0.5]))
+            _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, -1.0, np.array([0.5]))
         with pytest.raises(ValueError, match="pts must have at least one element"):
-            _eval_basis_Cox_de_Boor_impl(knots, degree, periodic, 1e-10, np.array([], dtype=float))
+            _compute_basis_Cox_de_Boor_impl(
+                knots, degree, periodic, 1e-10, np.array([], dtype=float)
+            )
 
     def test_extraction_non_open_left_end_branch(self) -> None:
         """Cover branch when first knot in domain multiplicity < degree+1."""
@@ -1047,49 +1049,49 @@ class TestAdditionalEdgeCases:
         knots = np.array([0.0, 0.1, 0.1, 0.5, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        Cs = _create_bspline_Bezier_extraction_impl(knots, degree, tol)
+        Cs = _compute_bspline_Bezier_extraction_impl(knots, degree, tol)
         # Shape sanity
         assert Cs.shape[1:] == (degree + 1, degree + 1)
         # The first element matrix should be modified from identity when mult < degree+1
         assert not np.allclose(Cs[0], np.eye(degree + 1))
 
-    def test_eval_basis_public_shapes_and_domain_error(self) -> None:
-        """BsplineSpace1D.eval_basis covers scalar/list/ndarray inputs and domain error."""
+    def test_compute_basis_public_shapes_and_domain_error(self) -> None:
+        """BsplineSpace1D.compute_basis covers scalar/list/ndarray inputs and domain error."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
         spline = BsplineSpace1D(knots, degree)
         # non Bernstein evaluation path.
-        B_scalar, idx_scalar = spline.eval_basis(0.0)
+        B_scalar, idx_scalar = spline.compute_basis(0.0)
         assert B_scalar.shape == (degree + 1,)
         assert np.isscalar(idx_scalar) or np.array(idx_scalar).shape == ()
         knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
         degree = 2
         spline = BsplineSpace1D(knots, degree)
         # scalar input
-        B_scalar, idx_scalar = spline.eval_basis(0.0)
+        B_scalar, idx_scalar = spline.compute_basis(0.0)
         assert B_scalar.shape == (degree + 1,)
         assert np.isscalar(idx_scalar) or np.array(idx_scalar).shape == ()
         # list input
         pts_list = [0.0, 0.5, 1.0]
-        B_list, idx_list = spline.eval_basis(pts_list)
+        B_list, idx_list = spline.compute_basis(pts_list)
         assert B_list.shape == (len(pts_list), degree + 1)
         assert idx_list.shape == (len(pts_list),)
         # ndarray input
         pts_arr = np.array([0.25, 0.75], dtype=np.float64)
-        B_arr, idx_arr = spline.eval_basis(pts_arr)
+        B_arr, idx_arr = spline.compute_basis(pts_arr)
         assert B_arr.shape == (2, degree + 1)
         assert idx_arr.shape == (2,)
         # outside domain error
         with pytest.raises(ValueError, match="outside the knot vector domain"):
-            spline.eval_basis([-0.1, 1.1])
+            spline.compute_basis([-0.1, 1.1])
 
-    def test_eval_bernstein_like_direct_raises_on_non_bezier(self) -> None:
+    def test_compute_bernstein_like_direct_raises_on_non_bezier(self) -> None:
         """Direct Bernstein-like evaluator should assert on non-Bézier-like splines."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
         degree = 2
         spline = BsplineSpace1D(knots, degree)
         with pytest.raises(ValueError, match="B-spline does not have Bézier-like knots"):
-            _eval_Bspline_basis_Bernstein_like_1D(spline, np.array([0.0, 0.5, 1.0]))
+            _compute_Bspline_basis_Bernstein_like_1D(spline, np.array([0.0, 0.5, 1.0]))
 
 
 class TestBsplineSpace1DCoverageTargets:
@@ -1128,7 +1130,7 @@ class TestBsplineSpace1DCoverageTargets:
         """Cover branch where first-domain multiplicity == 1 (degree=2 => reg=1)."""
         # degree=2, first three knots are all different so multiplicity at index 2 is 1
         knots = np.array([0.0, 0.1, 0.2, 0.6, 1.0, 1.0], dtype=np.float64)
-        Cs = _create_bspline_Bezier_extraction_impl(knots, 2, 1e-10)
+        Cs = _compute_bspline_Bezier_extraction_impl(knots, 2, 1e-10)
         # At least one coefficient in the first extraction matrix should differ from identity
         assert Cs.shape[1:] == (3, 3)
         assert not np.allclose(Cs[0], np.eye(3))
@@ -1164,13 +1166,13 @@ class TestBsplineSpace1DCoverageTargets:
         with pytest.raises(TypeError):
             _get_last_knot_smaller_equal_impl(knots, pts)
 
-    def test_eval_basis_cox_de_boor_pts_not_1d(self) -> None:
+    def test_compute_basis_cox_de_boor_pts_not_1d(self) -> None:
         """__Cox_de_Boor_impl should raise when pts is not 1D."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         pts = np.array([[0.25, 0.75]], dtype=np.float64)
         # Numba dispatcher rejects non-1D arrays at signature level
         with pytest.raises(TypeError):
-            _eval_basis_Cox_de_Boor_impl(knots, 2, False, 1e-10, pts)
+            _compute_basis_Cox_de_Boor_impl(knots, 2, False, 1e-10, pts)
 
 
 class TestExtractionOperatorCorrectness:
@@ -1240,11 +1242,11 @@ class TestExtractionOperatorCorrectness:
 
         # Get extraction operators based on type
         if extraction_type == "bezier":
-            C_extraction = spline.create_Bezier_extraction_operators()
+            C_extraction = spline.compute_Bezier_extraction_operators()
         elif extraction_type == "lagrange":
-            C_extraction = spline.create_Lagrange_extraction_operators()
+            C_extraction = spline.compute_Lagrange_extraction_operators()
         elif extraction_type == "cardinal":
-            C_extraction = spline.create_cardinal_extraction_operators()
+            C_extraction = spline.compute_cardinal_extraction_operators()
         else:
             raise ValueError(f"Unknown extraction type: {extraction_type}")
 
@@ -1268,11 +1270,11 @@ class TestExtractionOperatorCorrectness:
 
             # Evaluate reference basis at reference points
             if extraction_type == "bezier":
-                B_ref = eval_Bernstein_basis_1D(degree, xi_ref)
+                B_ref = compute_Bernstein_basis_1D(degree, xi_ref)
             elif extraction_type == "lagrange":
-                B_ref = eval_Lagrange_basis_1D(degree, LagrangeVariant.EQUISPACES, xi_ref)
+                B_ref = compute_Lagrange_basis_1D(degree, LagrangeVariant.EQUISPACES, xi_ref)
             elif extraction_type == "cardinal":
-                B_ref = eval_cardinal_Bspline_basis_1D(degree, xi_ref)
+                B_ref = compute_cardinal_Bspline_basis_1D(degree, xi_ref)
             else:
                 raise ValueError(f"Unknown extraction type: {extraction_type}")
 
@@ -1281,7 +1283,7 @@ class TestExtractionOperatorCorrectness:
             B_transformed = B_ref @ C_extraction[interval_idx].T
 
             # Evaluate B-spline basis at physical points
-            B_bspline, _ = spline.eval_basis(x_physical)
+            B_bspline, _ = spline.compute_basis(x_physical)
 
             # Extract the (degree+1) B-spline basis functions for this interval
             B_bspline_extracted = B_bspline[:, :]
