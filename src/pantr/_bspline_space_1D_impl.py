@@ -14,7 +14,7 @@ import numpy.typing as npt
 from numba import njit
 from numba.core import types as nb_types
 
-from ._basis_impl import _compute_Bernstein_basis_1D_impl
+from ._basis_impl import _tabulate_Bernstein_basis_1D_impl
 from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
 from .basis import LagrangeVariant
 from .change_basis_1D import (
@@ -467,7 +467,7 @@ def _get_cardinal_intervals_impl(
     ],
     cache=True,
 )  # type: ignore[misc]
-def _compute_bspline_Bezier_extraction_impl(
+def _tabulate_bspline_Bezier_extraction_impl(
     knots: npt.NDArray[np.float32 | np.float64], degree: int, tol: float
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Create Bézier extraction operators for each interval.
@@ -565,7 +565,7 @@ def _compute_bspline_Bezier_extraction_impl(
     return Cs
 
 
-def _compute_bspline_Lagrange_extraction_impl(
+def _tabulate_bspline_Lagrange_extraction_impl(
     knots: npt.NDArray[np.float32 | np.float64],
     degree: int,
     tol: float,
@@ -596,7 +596,7 @@ def _compute_bspline_Lagrange_extraction_impl(
 
     C = cast(
         npt.NDArray[np.float32 | np.float64],
-        _compute_bspline_Bezier_extraction_impl(knots, degree, tol),
+        _tabulate_bspline_Bezier_extraction_impl(knots, degree, tol),
     )
 
     dtype = knots.dtype
@@ -606,7 +606,7 @@ def _compute_bspline_Lagrange_extraction_impl(
     return C
 
 
-def _compute_bspline_cardinal_extraction_impl(
+def _tabulate_bspline_cardinal_extraction_impl(
     knots: npt.NDArray[np.float32 | np.float64],
     degree: int,
     tol: float,
@@ -636,7 +636,7 @@ def _compute_bspline_cardinal_extraction_impl(
 
     C = cast(
         npt.NDArray[np.float32 | np.float64],
-        _compute_bspline_Bezier_extraction_impl(knots, degree, tol),
+        _tabulate_bspline_Bezier_extraction_impl(knots, degree, tol),
     )
 
     dtype = knots.dtype
@@ -648,7 +648,7 @@ def _compute_bspline_cardinal_extraction_impl(
     return C
 
 
-def _compute_Bspline_basis_Bernstein_like_1D(
+def _tabulate_Bspline_basis_Bernstein_like_1D(
     spline: BsplineSpace1D,
     pts: npt.NDArray[np.float32 | np.float64],
 ) -> tuple[npt.NDArray[np.float32 | np.float64], npt.NDArray[np.int_]]:
@@ -681,10 +681,10 @@ def _compute_Bspline_basis_Bernstein_like_1D(
     # the first basis function is always the 0
     first_basis_ids = np.zeros(pts.size, dtype=np.int_)
 
-    return _compute_Bernstein_basis_1D_impl(spline.degree, pts), first_basis_ids
+    return _tabulate_Bernstein_basis_1D_impl(spline.degree, pts), first_basis_ids
 
 
-def _compute_Bspline_basis_1D_impl(
+def _tabulate_Bspline_basis_1D_impl(
     spline: BsplineSpace1D, pts: npt.ArrayLike
 ) -> tuple[npt.NDArray[np.float32 | np.float64], npt.NDArray[np.int_]]:
     """Evaluate B-spline basis functions at given points.
@@ -716,7 +716,7 @@ def _compute_Bspline_basis_1D_impl(
 
     Example:
         >>> bspline = BsplineSpace1D([0, 0, 0, 0.25, 0.7, 0.7, 1, 1, 1], 2)
-        >>> _compute_Bspline_basis_1D_impl(bspline, [0.0, 0.5, 0.75, 1.0])
+        >>> _tabulate_Bspline_basis_1D_impl(bspline, [0.0, 0.5, 0.75, 1.0])
         (array([[1.        , 0.        , 0.        ],
                 [0.12698413, 0.5643739 , 0.30864198],
                 [0.69444444, 0.27777778, 0.02777778],
@@ -739,7 +739,7 @@ def _compute_Bspline_basis_1D_impl(
         )
 
     if spline.has_Bezier_like_knots():
-        B, first_indices = _compute_Bspline_basis_Bernstein_like_1D(spline, pts)
+        B, first_indices = _tabulate_Bspline_basis_Bernstein_like_1D(spline, pts)
     else:
         B, first_indices = _compute_basis_Cox_de_Boor_impl(
             spline.knots, spline.degree, spline.periodic, spline.tolerance, pts

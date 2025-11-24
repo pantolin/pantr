@@ -6,9 +6,9 @@ import pytest
 
 from pantr.basis import (
     LagrangeVariant,
-    compute_Bernstein_basis_1D,
-    compute_cardinal_Bspline_basis_1D,
-    compute_Lagrange_basis_1D,
+    tabulate_Bernstein_basis_1D,
+    tabulate_cardinal_Bspline_basis_1D,
+    tabulate_Lagrange_basis_1D,
 )
 from pantr.change_basis_1D import (
     _compute_change_basis,
@@ -87,8 +87,8 @@ class TestBernsteinToLagrangeBasisOperator:
         n_pts = 10
         tt = np.linspace(0.0, 1.0, n_pts)
 
-        bernsteins = compute_Bernstein_basis_1D(degree, tt)
-        lagranges = compute_Lagrange_basis_1D(degree, variant, tt)
+        bernsteins = tabulate_Bernstein_basis_1D(degree, tt)
+        lagranges = tabulate_Lagrange_basis_1D(degree, variant, tt)
 
         C = compute_Bernstein_to_Lagrange_change_basis(degree, variant)
         np.testing.assert_array_almost_equal(bernsteins @ C.T, lagranges)
@@ -133,8 +133,8 @@ class TestCardinalToBernsteinBasisOperator:
         for degree in [1, 2, 3, 4]:
             n_pts = 10
             tt = np.linspace(0.0, 1.0, n_pts)
-            bernsteins = compute_Bernstein_basis_1D(degree, tt)
-            cardinals = compute_cardinal_Bspline_basis_1D(degree, tt)
+            bernsteins = tabulate_Bernstein_basis_1D(degree, tt)
+            cardinals = tabulate_cardinal_Bspline_basis_1D(degree, tt)
 
             C = compute_cardinal_to_Bernstein_change_basis(degree)
             np.testing.assert_array_almost_equal(bernsteins, cardinals @ C.T)
@@ -153,12 +153,12 @@ class TestCreateChangeBasis:
         def bernstein(
             pts: npt.NDArray[np.float32 | np.float64],
         ) -> npt.NDArray[np.float32 | np.float64]:
-            return compute_Bernstein_basis_1D(degree, pts)
+            return tabulate_Bernstein_basis_1D(degree, pts)
 
         def cardinal(
             pts: npt.NDArray[np.float32 | np.float64],
         ) -> npt.NDArray[np.float32 | np.float64]:
-            return compute_cardinal_Bspline_basis_1D(degree, pts)
+            return tabulate_cardinal_Bspline_basis_1D(degree, pts)
 
         with pytest.raises(ValueError, match="Number of quadrature points must be positive"):
             _compute_change_basis(bernstein, cardinal, n_quad_pts=0)
@@ -173,12 +173,12 @@ class TestCreateChangeBasis:
         def bernstein(
             pts: npt.NDArray[np.float32 | np.float64],
         ) -> npt.NDArray[np.float32 | np.float64]:
-            return compute_Bernstein_basis_1D(degree, pts)
+            return tabulate_Bernstein_basis_1D(degree, pts)
 
         def cardinal(
             pts: npt.NDArray[np.float32 | np.float64],
         ) -> npt.NDArray[np.float32 | np.float64]:
-            return compute_cardinal_Bspline_basis_1D(degree, pts)
+            return tabulate_cardinal_Bspline_basis_1D(degree, pts)
 
         with pytest.raises(ValueError, match="dtype must be float32 or float64"):
             _compute_change_basis(bernstein, cardinal, n_quad_pts=3, dtype=np.int32)

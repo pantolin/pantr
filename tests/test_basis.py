@@ -18,12 +18,12 @@ from scipy.interpolate import BPoly
 
 from pantr.basis import (
     LagrangeVariant,
-    compute_Bernstein_basis,
-    compute_Bernstein_basis_1D,
-    compute_cardinal_Bspline_basis,
-    compute_cardinal_Bspline_basis_1D,
-    compute_Lagrange_basis,
-    compute_Lagrange_basis_1D,
+    tabulate_Bernstein_basis,
+    tabulate_Bernstein_basis_1D,
+    tabulate_cardinal_Bspline_basis,
+    tabulate_cardinal_Bspline_basis_1D,
+    tabulate_Lagrange_basis,
+    tabulate_Lagrange_basis_1D,
 )
 from pantr.quad import PointsLattice
 from pantr.tolerance import get_conservative_tolerance, get_default_tolerance
@@ -44,11 +44,11 @@ def _get_basis_function(
 ) -> Callable[..., npt.NDArray[np.float32 | np.float64]]:
     """Get the multi-dimensional basis function for the given type."""
     if basis_type == BasisType.BERNSTEIN:
-        return compute_Bernstein_basis
+        return tabulate_Bernstein_basis
     if basis_type == BasisType.CARDINAL_BSPLINE:
-        return compute_cardinal_Bspline_basis
+        return tabulate_cardinal_Bspline_basis
     if basis_type == BasisType.LAGRANGE:
-        return compute_Lagrange_basis
+        return tabulate_Lagrange_basis
     raise ValueError(f"Unknown basis type: {basis_type}")
 
 
@@ -57,11 +57,11 @@ def _get_basis_1d_function(
 ) -> Callable[..., npt.NDArray[np.float32 | np.float64]]:
     """Get the 1D basis function for the given type."""
     if basis_type == BasisType.BERNSTEIN:
-        return compute_Bernstein_basis_1D
+        return tabulate_Bernstein_basis_1D
     if basis_type == BasisType.CARDINAL_BSPLINE:
-        return compute_cardinal_Bspline_basis_1D
+        return tabulate_cardinal_Bspline_basis_1D
     if basis_type == BasisType.LAGRANGE:
-        return compute_Lagrange_basis_1D
+        return tabulate_Lagrange_basis_1D
     raise ValueError(f"Unknown basis type: {basis_type}")
 
 
@@ -115,19 +115,19 @@ def _compute_with_scipy_bpoly(
 
 
 class TestEvalBernsteinBasis1D:
-    """Test suite for compute_Bernstein_basis_1D function."""
+    """Test suite for tabulate_Bernstein_basis_1D function."""
 
     def test_degree_zero(self) -> None:
         """Test Bernstein basis of degree 0."""
         pts = np.array([0.0, 0.5, 1.0])
-        result = compute_Bernstein_basis_1D(0, pts)
+        result = tabulate_Bernstein_basis_1D(0, pts)
         expected = np.ones((3, 1))
         nptest.assert_allclose(result, expected)
 
     def test_degree_one(self) -> None:
         """Test Bernstein basis of degree 1 (linear)."""
         pts = np.array([0.0, 0.5, 1.0])
-        result = compute_Bernstein_basis_1D(1, pts)
+        result = tabulate_Bernstein_basis_1D(1, pts)
         # B_0,1(t) = 1-t, B_1,1(t) = t
         expected = np.array([[1.0, 0.0], [0.5, 0.5], [0.0, 1.0]])
         nptest.assert_allclose(result, expected)
@@ -135,7 +135,7 @@ class TestEvalBernsteinBasis1D:
     def test_degree_two_example(self) -> None:
         """Test Bernstein basis of degree 2 with example from docstring."""
         pts = np.array([0.0, 0.5, 0.75, 1.0])
-        result = compute_Bernstein_basis_1D(2, pts)
+        result = tabulate_Bernstein_basis_1D(2, pts)
         expected = np.array(
             [
                 [1.0, 0.0, 0.0],
@@ -150,7 +150,7 @@ class TestEvalBernsteinBasis1D:
         """Test Bernstein basis at boundary points t=0 and t=1."""
         degree = 3
         pts = np.array([0.0, 1.0])
-        result = compute_Bernstein_basis_1D(degree, pts)
+        result = tabulate_Bernstein_basis_1D(degree, pts)
         # At t=0: only B_0,n(0) = 1, all others are 0
         # At t=1: only B_n,n(1) = 1, all others are 0
         expected = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
@@ -158,20 +158,20 @@ class TestEvalBernsteinBasis1D:
 
     def test_scalar_input(self) -> None:
         """Test with scalar input point."""
-        result = compute_Bernstein_basis_1D(2, 0.5)
+        result = tabulate_Bernstein_basis_1D(2, 0.5)
         expected = np.array([0.25, 0.5, 0.25])
         nptest.assert_allclose(result, expected)
 
     def test_list_input(self) -> None:
         """Test with list input."""
-        result = compute_Bernstein_basis_1D(2, [0.0, 0.5, 1.0])
+        result = tabulate_Bernstein_basis_1D(2, [0.0, 0.5, 1.0])
         expected = np.array([[1.0, 0.0, 0.0], [0.25, 0.5, 0.25], [0.0, 0.0, 1.0]])
         nptest.assert_allclose(result, expected)
 
     def test_float32_dtype(self) -> None:
         """Test with float32 input dtype."""
         pts = np.array([0.0, 0.5, 1.0], dtype=np.float32)
-        result = compute_Bernstein_basis_1D(2, pts)
+        result = tabulate_Bernstein_basis_1D(2, pts)
         assert result.dtype == np.float32
         expected = np.array([[1.0, 0.0, 0.0], [0.25, 0.5, 0.25], [0.0, 0.0, 1.0]], dtype=np.float32)
         nptest.assert_allclose(result, expected)
@@ -179,7 +179,7 @@ class TestEvalBernsteinBasis1D:
     def test_float64_dtype(self) -> None:
         """Test with float64 input dtype."""
         pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
-        result = compute_Bernstein_basis_1D(2, pts)
+        result = tabulate_Bernstein_basis_1D(2, pts)
         assert result.dtype == np.float64
         expected = np.array([[1.0, 0.0, 0.0], [0.25, 0.5, 0.25], [0.0, 0.0, 1.0]], dtype=np.float64)
         nptest.assert_allclose(result, expected)
@@ -187,20 +187,20 @@ class TestEvalBernsteinBasis1D:
     def test_int_input_converted_to_float64(self) -> None:
         """Test that integer inputs are converted to float64."""
         pts = np.array([0, 1], dtype=np.int32)
-        result = compute_Bernstein_basis_1D(2, pts)
+        result = tabulate_Bernstein_basis_1D(2, pts)
         assert result.dtype == np.float64
 
     def test_negative_degree_raises_error(self) -> None:
         """Test that negative degree raises ValueError."""
         pts = np.array([0.0, 0.5, 1.0])
         with pytest.raises(ValueError, match="degree must be non-negative"):
-            compute_Bernstein_basis_1D(-1, pts)
+            tabulate_Bernstein_basis_1D(-1, pts)
 
     def test_partition_of_unity(self) -> None:
         """Test that Bernstein basis functions sum to 1 (partition of unity)."""
         degree = 4
         pts = np.linspace(0.0, 1.0, 11)
-        result = compute_Bernstein_basis_1D(degree, pts)
+        result = tabulate_Bernstein_basis_1D(degree, pts)
         # Sum over the last dimension should be 1 for each point
         sums = np.sum(result, axis=-1)
         nptest.assert_allclose(sums, 1.0, rtol=get_conservative_tolerance(np.float64))
@@ -224,9 +224,9 @@ def test_matches_bpoly(
     dtype: npt.DTypeLike,
     pts_factory: Callable[[npt.DTypeLike], npt.ArrayLike],
 ) -> None:
-    """Compare compute_Bernstein_basis_1D against BPoly for varied degrees/dtypes/shapes."""
+    """Compare tabulate_Bernstein_basis_1D against BPoly for varied degrees/dtypes/shapes."""
     pts = pts_factory(dtype)
-    pantr_vals = compute_Bernstein_basis_1D(degree, pts)
+    pantr_vals = tabulate_Bernstein_basis_1D(degree, pts)
     bpoly_vals = _compute_with_scipy_bpoly(degree, pts, dtype)
 
     rtol = get_default_tolerance(dtype)
@@ -238,7 +238,7 @@ def test_matches_bpoly(
 def test_outside_unit_interval_matches_bpoly(degree: int, dtype: npt.DTypeLike) -> None:
     """Ensure evaluation outside [0, 1] matches BPoly extrapolation."""
     pts = np.array([-0.5, -0.1, 1.1, 1.5], dtype=dtype)
-    pantr_vals = compute_Bernstein_basis_1D(degree, pts)
+    pantr_vals = tabulate_Bernstein_basis_1D(degree, pts)
     bpoly_vals = _compute_with_scipy_bpoly(degree, pts, dtype)
 
     rtol = get_default_tolerance(dtype)
@@ -251,7 +251,7 @@ def test_random_points_high_degree(dtype: npt.DTypeLike) -> None:
     rng = np.random.default_rng(1234)
     degree = 12
     pts = rng.random(200).astype(dtype)
-    pantr_vals = compute_Bernstein_basis_1D(degree, pts)
+    pantr_vals = tabulate_Bernstein_basis_1D(degree, pts)
     bpoly_vals = _compute_with_scipy_bpoly(degree, pts, dtype)
 
     rtol = 5.0 * get_default_tolerance(dtype)
@@ -262,7 +262,7 @@ def test_non_negativity() -> None:
     """Test that Bernstein basis functions are non-negative on [0, 1]."""
     degree = 3
     pts = np.linspace(0.0, 1.0, 21)
-    result = compute_Bernstein_basis_1D(degree, pts)
+    result = tabulate_Bernstein_basis_1D(degree, pts)
     # Allow small numerical errors
     assert np.all(result >= -NEGATIVE_TOL)
 
@@ -270,7 +270,7 @@ def test_non_negativity() -> None:
 def test_2d_input_shape_preservation() -> None:
     """Test that 2D input arrays preserve shape correctly."""
     pts = np.array([[0.0, 0.5], [0.25, 0.75]])
-    result = compute_Bernstein_basis_1D(2, pts)
+    result = tabulate_Bernstein_basis_1D(2, pts)
     # Should have shape (2, 2, 3) - original shape + basis dimension
     assert result.shape == (2, 2, 3)
 
@@ -278,14 +278,14 @@ def test_2d_input_shape_preservation() -> None:
 def test_3d_input_shape_preservation() -> None:
     """Test that 3D input arrays preserve shape correctly."""
     pts = np.array([[[0.0], [0.5]], [[0.25], [0.75]]])
-    result = compute_Bernstein_basis_1D(1, pts)
+    result = tabulate_Bernstein_basis_1D(1, pts)
     # Should have shape (2, 2, 1, 2) - original shape + basis dimension
     assert result.shape == (2, 2, 1, 2)
 
 
 def test_single_point_at_midpoint() -> None:
     """Test evaluation at a single midpoint."""
-    result = compute_Bernstein_basis_1D(3, 0.5)
+    result = tabulate_Bernstein_basis_1D(3, 0.5)
     # For degree 3 at t=0.5, all basis functions should be symmetric
     # B_0,3(0.5) = B_3,3(0.5) = (1/2)^3 = 0.125
     # B_1,3(0.5) = B_2,3(0.5) = 3 * (1/2)^3 = 0.375
@@ -297,7 +297,7 @@ def test_high_degree() -> None:
     """Test with higher degree to ensure numerical stability."""
     degree = 10
     pts = np.array([0.0, 0.5, 1.0])
-    result = compute_Bernstein_basis_1D(degree, pts)
+    result = tabulate_Bernstein_basis_1D(degree, pts)
     # Check shape
     assert result.shape == (3, degree + 1)
     # Check partition of unity
@@ -314,7 +314,7 @@ def test_points_outside_unit_interval() -> None:
     """Test evaluation at points outside [0, 1]."""
     # Bernstein basis can be evaluated outside [0, 1], though values may be negative
     pts = np.array([-0.5, 1.5])
-    result = compute_Bernstein_basis_1D(2, pts)
+    result = tabulate_Bernstein_basis_1D(2, pts)
     # Should not raise an error and should return valid values
     assert result.shape == (2, 3)
     # Check partition of unity still holds
