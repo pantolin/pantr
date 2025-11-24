@@ -11,10 +11,10 @@ import numpy.typing as npt
 
 from ._basis_impl import (
     _compute_basis_1D_combinator_matrix,
-    _compute_Bernstein_basis_1D_impl,
-    _compute_cardinal_Bspline_basis_1D_impl,
-    _compute_Lagrange_basis_1D_impl,
-    _compute_Legendre_basis_1D_impl,
+    _tabulate_Bernstein_basis_1D_impl,
+    _tabulate_cardinal_Bspline_basis_1D_impl,
+    _tabulate_Lagrange_basis_1D_impl,
+    _tabulate_Legendre_basis_1D_impl,
 )
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ class LagrangeVariant(Enum):
     CHEBYSHEV_2ND = "chebyshev_2nd"
 
 
-def compute_Bernstein_basis_1D(
+def tabulate_Bernstein_basis_1D(
     degree: int, pts: npt.ArrayLike
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the Bernstein basis polynomials of the given degree at the given points.
@@ -60,16 +60,16 @@ def compute_Bernstein_basis_1D(
         ValueError: If degree is negative.
 
     Example:
-        >>> compute_Bernstein_basis_1D(2, [0.0, 0.5, 0.75, 1.0])
+        >>> tabulate_Bernstein_basis_1D(2, [0.0, 0.5, 0.75, 1.0])
         array([[1.    , 0.    , 0.    ],
                [0.25  , 0.5   , 0.25  ],
                [0.0625, 0.375 , 0.5625],
                [0.    , 0.    , 1.    ]])
     """
-    return _compute_Bernstein_basis_1D_impl(degree, pts)
+    return _tabulate_Bernstein_basis_1D_impl(degree, pts)
 
 
-def compute_cardinal_Bspline_basis_1D(
+def tabulate_cardinal_Bspline_basis_1D(
     degree: int, pts: npt.ArrayLike
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate the cardinal B-spline basis polynomials of given degree at given points.
@@ -103,17 +103,17 @@ def compute_cardinal_Bspline_basis_1D(
         ValueError: If provided degree is negative.
 
     Example:
-        >>> compute_cardinal_Bspline_basis_1D(2, [0.0, 0.5, 1.0])
+        >>> tabulate_cardinal_Bspline_basis_1D(2, [0.0, 0.5, 1.0])
         array([[0.5    , 0.5    , 0.     ],
                [0.125  , 0.75   , 0.125  ],
                [0.03125, 0.6875 , 0.28125],
                [0.     , 0.5    , 0.5    ]])
 
     """
-    return _compute_cardinal_Bspline_basis_1D_impl(degree, pts)
+    return _tabulate_cardinal_Bspline_basis_1D_impl(degree, pts)
 
 
-def compute_Lagrange_basis_1D(
+def tabulate_Lagrange_basis_1D(
     degree: int, variant: LagrangeVariant, pts: npt.ArrayLike
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate Lagrange basis polynomials at points using the specified variant.
@@ -140,10 +140,10 @@ def compute_Lagrange_basis_1D(
     Raises:
         ValueError: If provided degree is negative.
     """
-    return _compute_Lagrange_basis_1D_impl(degree, variant, pts)
+    return _tabulate_Lagrange_basis_1D_impl(degree, variant, pts)
 
 
-def compute_Legendre_basis_1D(
+def tabulate_Legendre_basis_1D(
     degree: int, pts: npt.ArrayLike
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate the normalized Shifted Legendre basis polynomials at the given points.
@@ -165,10 +165,10 @@ def compute_Legendre_basis_1D(
     Raises:
         ValueError: If provided degree is negative.
     """
-    return _compute_Legendre_basis_1D_impl(degree, pts)
+    return _tabulate_Legendre_basis_1D_impl(degree, pts)
 
 
-def compute_Bernstein_basis(
+def tabulate_Bernstein_basis(
     degrees: Iterable[int],
     pts: npt.ArrayLike | PointsLattice,
     funcs_order: Literal["C", "F"] = "C",
@@ -200,12 +200,12 @@ def compute_Bernstein_basis(
         raise ValueError("All degrees must be non-negative integers")
     evaluators_1D = cast(
         tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]],
-        tuple(lambda pts, d=degree: compute_Bernstein_basis_1D(d, pts) for degree in degrees),
+        tuple(lambda pts, d=degree: tabulate_Bernstein_basis_1D(d, pts) for degree in degrees),
     )
     return _compute_basis_1D_combinator_matrix(evaluators_1D, pts, funcs_order)
 
 
-def compute_cardinal_Bspline_basis(
+def tabulate_cardinal_Bspline_basis(
     degrees: Iterable[int],
     pts: npt.ArrayLike | PointsLattice,
     funcs_order: Literal["C", "F"] = "C",
@@ -238,13 +238,13 @@ def compute_cardinal_Bspline_basis(
     evaluators_1D = cast(
         tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]],
         tuple(
-            lambda pts, d=degree: compute_cardinal_Bspline_basis_1D(d, pts) for degree in degrees
+            lambda pts, d=degree: tabulate_cardinal_Bspline_basis_1D(d, pts) for degree in degrees
         ),
     )
     return _compute_basis_1D_combinator_matrix(evaluators_1D, pts, funcs_order)
 
 
-def compute_Lagrange_basis(
+def tabulate_Lagrange_basis(
     degrees: Iterable[int],
     variant: LagrangeVariant,
     pts: npt.ArrayLike | PointsLattice,
@@ -279,7 +279,7 @@ def compute_Lagrange_basis(
     evaluators_1D = cast(
         tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]],
         tuple(
-            lambda pts, d=degree: compute_Lagrange_basis_1D(d, variant, pts) for degree in degrees
+            lambda pts, d=degree: tabulate_Lagrange_basis_1D(d, variant, pts) for degree in degrees
         ),
     )
     return _compute_basis_1D_combinator_matrix(evaluators_1D, pts, funcs_order)

@@ -7,14 +7,14 @@ import numpy as np
 from numpy import typing as npt
 
 from ._bspline_space_1D_impl import (
-    _compute_Bspline_basis_1D_impl,
-    _compute_bspline_Bezier_extraction_impl,
-    _compute_bspline_cardinal_extraction_impl,
-    _compute_bspline_Lagrange_extraction_impl,
     _compute_num_basis_impl,
     _get_cardinal_intervals_impl,
     _get_ends_and_type,
     _get_unique_knots_and_multiplicity_impl,
+    _tabulate_Bspline_basis_1D_impl,
+    _tabulate_bspline_Bezier_extraction_impl,
+    _tabulate_bspline_cardinal_extraction_impl,
+    _tabulate_bspline_Lagrange_extraction_impl,
     _validate_knot_input,
 )
 from .tolerance import get_strict_tolerance
@@ -601,7 +601,7 @@ class BsplineSpace1D:
             _get_cardinal_intervals_impl(self._knots, self._degree, self._tol),
         )
 
-    def compute_basis(
+    def tabulate_basis(
         self, pts: npt.ArrayLike
     ) -> tuple[npt.NDArray[np.float32 | np.float64], npt.NDArray[np.int_]]:
         """Evaluate the B-spline basis functions at the given points.
@@ -627,16 +627,16 @@ class BsplineSpace1D:
 
         Example:
             >>> bspline = BsplineSpace1D([0, 0, 0, 0.25, 0.7, 0.7, 1, 1, 1], 2)
-            >>> bspline.compute_basis([0.0, 0.5, 0.75, 1.0])
+            >>> bspline.tabulate_basis([0.0, 0.5, 0.75, 1.0])
             (array([[1.        , 0.        , 0.        ],
                     [0.12698413, 0.5643739 , 0.30864198],
                     [0.69444444, 0.27777778, 0.02777778],
                     [0.        , 0.        , 1.        ]]),
              array([0, 1, 3, 3]))
         """
-        return _compute_Bspline_basis_1D_impl(self, pts)
+        return _tabulate_Bspline_basis_1D_impl(self, pts)
 
-    def compute_Bezier_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
+    def tabulate_Bezier_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
         """Create Bézier extraction operators of the B-spline.
 
         Returns:
@@ -650,10 +650,10 @@ class BsplineSpace1D:
         """
         return cast(
             npt.NDArray[np.float32 | np.float64],
-            _compute_bspline_Bezier_extraction_impl(self.knots, self.degree, self.tolerance),
+            _tabulate_bspline_Bezier_extraction_impl(self.knots, self.degree, self.tolerance),
         )
 
-    def compute_Lagrange_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
+    def tabulate_Lagrange_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
         """Create Lagrange extraction operators of the B-spline.
 
         Returns:
@@ -665,9 +665,9 @@ class BsplineSpace1D:
                 to B-spline basis functions for the i-th interval as
                     C[i, :, :] @ [Lagrange values] = [B-spline values in interval].
         """
-        return _compute_bspline_Lagrange_extraction_impl(self.knots, self.degree, self.tolerance)
+        return _tabulate_bspline_Lagrange_extraction_impl(self.knots, self.degree, self.tolerance)
 
-    def compute_cardinal_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
+    def tabulate_cardinal_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
         """Create cardinal B-spline extraction operators of the B-spline.
 
         Returns:
@@ -679,4 +679,4 @@ class BsplineSpace1D:
                 to B-spline basis functions for the i-th interval as
                     C[i, :, :] @ [cardinal values] = [B-spline values in interval].
         """
-        return _compute_bspline_cardinal_extraction_impl(self.knots, self.degree, self.tolerance)
+        return _tabulate_bspline_cardinal_extraction_impl(self.knots, self.degree, self.tolerance)

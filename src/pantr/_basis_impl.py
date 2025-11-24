@@ -45,7 +45,7 @@ else:
     cache=True,
     parallel=False,
 )
-def _compute_Bernstein_basis_1D_core(
+def _tabulate_Bernstein_basis_1D_core(
     n: np.int32, t: npt.NDArray[np.float32] | npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate Bernstein basis polynomials of degree n at points t.
@@ -77,8 +77,8 @@ def _compute_Bernstein_basis_1D_core(
 
     Note:
         This is a Numba-compiled function optimized for performance. It
-        expects pre-normalized inputs (1D contiguous arrays). For general
-        use, call _compute_Bernstein_basis_1D_impl instead.
+        expects pre-normalized inputs (1D contiguous arrays).         For general
+        use, call _tabulate_Bernstein_basis_1D_impl instead.
     """
     if n == 0:
         # The basis is just B_0,0(pts) = 1
@@ -114,7 +114,7 @@ def _compute_Bernstein_basis_1D_core(
     return B
 
 
-def _compute_Bernstein_basis_1D_impl(
+def _tabulate_Bernstein_basis_1D_impl(
     n: int, t: npt.ArrayLike
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the Bernstein basis polynomials of the given degree at the given points.
@@ -132,7 +132,7 @@ def _compute_Bernstein_basis_1D_impl(
         ValueError: If degree is negative.
 
     Example:
-        >>> _compute_Bernstein_basis_1D_impl(2, [0.0, 0.5, 0.75, 1.0])
+        >>> _tabulate_Bernstein_basis_1D_impl(2, [0.0, 0.5, 0.75, 1.0])
         array([[1.    , 0.    , 0.    ],
                [0.25  , 0.5   , 0.25  ],
                [0.0625, 0.375 , 0.5625],
@@ -153,9 +153,9 @@ def _compute_Bernstein_basis_1D_impl(
 
     # Narrow union dtype for mypy by branching on dtype and casting accordingly.
     if t.dtype == np.float32:
-        B = _compute_Bernstein_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
+        B = _tabulate_Bernstein_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
     else:
-        B = _compute_Bernstein_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
+        B = _tabulate_Bernstein_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
 
     return _normalize_basis_output_1D(B, input_shape)
 
@@ -169,7 +169,7 @@ def _compute_Bernstein_basis_1D_impl(
     cache=True,
     parallel=False,
 )
-def _compute_cardinal_Bspline_basis_1D_core(
+def _tabulate_cardinal_Bspline_basis_1D_core(
     n: np.int32, t: npt.NDArray[np.float32] | npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the central cardinal B-spline basis of degree n on [0, 1].
@@ -211,7 +211,7 @@ def _compute_cardinal_Bspline_basis_1D_core(
     return out
 
 
-def _compute_cardinal_Bspline_basis_1D_impl(
+def _tabulate_cardinal_Bspline_basis_1D_impl(
     n: int, t: npt.ArrayLike
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate the cardinal B-spline basis polynomials of given degree at given points.
@@ -245,7 +245,7 @@ def _compute_cardinal_Bspline_basis_1D_impl(
         ValueError: If provided degree is negative.
 
     Example:
-        >>> compute_cardinal_Bspline_basis_1D(2, [0.0, 0.5, 1.0])
+        >>> tabulate_cardinal_Bspline_basis_1D(2, [0.0, 0.5, 1.0])
         array([[0.5    , 0.5    , 0.     ],
                [0.125  , 0.75   , 0.125  ],
                [0.03125, 0.6875 , 0.28125],
@@ -267,9 +267,9 @@ def _compute_cardinal_Bspline_basis_1D_impl(
 
     # Narrow union dtype for mypy by branching on dtype and casting accordingly.
     if t.dtype == np.float32:
-        B = _compute_cardinal_Bspline_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
+        B = _tabulate_cardinal_Bspline_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
     else:
-        B = _compute_cardinal_Bspline_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
+        B = _tabulate_cardinal_Bspline_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
 
     return _normalize_basis_output_1D(B, input_shape)
 
@@ -307,7 +307,7 @@ def _get_lagrange_points(
         return get_chebyshev_gauss_2nd_kind_quadrature_1D(n_pts, dtype)[0]
 
 
-def _compute_Lagrange_basis_1D_impl(
+def _tabulate_Lagrange_basis_1D_impl(
     n: int, variant: LagrangeVariant, t: npt.ArrayLike
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate Lagrange basis polynomials at points using the specified variant.
@@ -406,7 +406,7 @@ def _compute_Lagrange_basis_1D_impl(
     cache=True,
     parallel=False,
 )
-def _compute_Legendre_basis_1D_core(
+def _tabulate_Legendre_basis_1D_core(
     n: np.int32, t: npt.NDArray[np.float32] | npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate normalized Shifted Legendre basis polynomials of degree n at points t.
@@ -464,7 +464,7 @@ def _compute_Legendre_basis_1D_core(
     return B
 
 
-def _compute_Legendre_basis_1D_impl(
+def _tabulate_Legendre_basis_1D_impl(
     n: int, t: npt.ArrayLike
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the normalized Shifted Legendre basis polynomials of the given degree.
@@ -494,9 +494,9 @@ def _compute_Legendre_basis_1D_impl(
 
     # Narrow union dtype for mypy by branching on dtype and casting accordingly.
     if t.dtype == np.float32:
-        B = _compute_Legendre_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
+        B = _tabulate_Legendre_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
     else:
-        B = _compute_Legendre_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
+        B = _tabulate_Legendre_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
 
     return _normalize_basis_output_1D(B, input_shape)
 

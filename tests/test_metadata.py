@@ -21,13 +21,13 @@ def test_package_all_exports() -> None:
     expected_public_api: Final[set[str]] = {
         # Basis functions
         "LagrangeVariant",
-        "compute_Bernstein_basis",
-        "compute_Bernstein_basis_1D",
-        "compute_cardinal_Bspline_basis",
-        "compute_cardinal_Bspline_basis_1D",
-        "compute_Lagrange_basis",
-        "compute_Lagrange_basis_1D",
-        "compute_Legendre_basis_1D",
+        "tabulate_Bernstein_basis",
+        "tabulate_Bernstein_basis_1D",
+        "tabulate_cardinal_Bspline_basis",
+        "tabulate_cardinal_Bspline_basis_1D",
+        "tabulate_Lagrange_basis",
+        "tabulate_Lagrange_basis_1D",
+        "tabulate_Legendre_basis_1D",
         # B-spline space
         "BsplineSpace1D",
         "create_cardinal_Bspline_knot_vector",

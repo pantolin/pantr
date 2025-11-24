@@ -12,7 +12,7 @@ import numpy as np
 import numpy.typing as npt
 
 from ._basis_impl import _get_lagrange_points
-from .basis import LagrangeVariant, compute_Bernstein_basis_1D, compute_cardinal_Bspline_basis_1D
+from .basis import LagrangeVariant, tabulate_Bernstein_basis_1D, tabulate_cardinal_Bspline_basis_1D
 from .quad import get_gauss_legendre_quadrature_1D
 
 
@@ -47,7 +47,7 @@ def compute_Lagrange_to_Bernstein_change_basis(
 
     points = _get_lagrange_points(lagrange_variant, degree + 1, dtype)
 
-    return compute_Bernstein_basis_1D(degree, points).T
+    return tabulate_Bernstein_basis_1D(degree, points).T
 
 
 def compute_Bernstein_to_Lagrange_change_basis(
@@ -171,10 +171,10 @@ def compute_Bernstein_to_cardinal_change_basis(
     def bernstein(
         pts: npt.NDArray[np.float32 | np.float64],
     ) -> npt.NDArray[np.float32 | np.float64]:
-        return compute_Bernstein_basis_1D(degree, pts)
+        return tabulate_Bernstein_basis_1D(degree, pts)
 
     def cardinal(pts: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32 | np.float64]:
-        return compute_cardinal_Bspline_basis_1D(degree, pts)
+        return tabulate_cardinal_Bspline_basis_1D(degree, pts)
 
     return _compute_change_basis(
         new_basis_eval=bernstein,
@@ -211,10 +211,10 @@ def compute_cardinal_to_Bernstein_change_basis(
     def bernstein(
         pts: npt.NDArray[np.float32 | np.float64],
     ) -> npt.NDArray[np.float32 | np.float64]:
-        return compute_Bernstein_basis_1D(degree, pts)
+        return tabulate_Bernstein_basis_1D(degree, pts)
 
     def cardinal(pts: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32 | np.float64]:
-        return compute_cardinal_Bspline_basis_1D(degree, pts)
+        return tabulate_cardinal_Bspline_basis_1D(degree, pts)
 
     return _compute_change_basis(
         new_basis_eval=cardinal,
