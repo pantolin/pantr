@@ -186,48 +186,25 @@ def _eval_cardinal_Bspline_basis_1D_core(
     """
     num_pts = t.shape[0]
     out: npt.NDArray[np.float32 | np.float64] = np.zeros((num_pts, n + 1), dtype=t.dtype)
+    out[:, 0] = 1.0
 
-    if n == 0:
-        # Degree-0: characteristic function of [0, 1] (include both endpoints).
-        for j in range(num_pts):
-            u = t[j]
-            if 0.0 <= u <= 1.0:
-                out[j, 0] = 1.0
+    if n == 0:  # Degree-0: basis function is constant.
         return out
-
-    # Temporary arrays reused per point
-    left = np.empty(n + 1, dtype=t.dtype)
-    right = np.empty(n + 1, dtype=t.dtype)
-    N = np.empty(n + 1, dtype=t.dtype)
 
     for j in range(num_pts):
         u = t[j]
-        if not (0.0 <= u <= 1.0):
-            # Outside the central span: remains zeros
-            continue
+        one_minus_u = 1.0 - u
 
-        # BasisFuns for uniform knots U_k = k, degree n, span index i = 0.
-        N[0] = 1.0
+        N = out[j, :]
         for k in range(1, n + 1):
-            # For i = 0 and uniform unit knots:
-            # left[k]  = u - U[i+1-k] = u - (1 - k) = u + k - 1
-            # right[k] = U[i+k] - u   = k - u
-            left[k] = u + (k - 1.0)
-            right[k] = (k - 0.0) - u
-
+            inv_k = 1.0 / k
             saved = 0.0
             for r in range(k):
-                denom = right[r + 1] + left[k - r]
-                temp = 0.0
-                if denom != 0.0:
-                    temp = N[r] / denom
-                N[r] = saved + right[r + 1] * temp
-                saved = left[k - r] * temp
+                Nr_old = N[r]
+                term = (r + one_minus_u) * inv_k
+                N[r] = saved + Nr_old * term
+                saved = Nr_old * (1.0 - term)
             N[k] = saved
-
-        # N[0..n] directly correspond to i = 0..n on the central span
-        for i in range(n + 1):
-            out[j, i] = N[i]
 
     return out
 
