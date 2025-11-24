@@ -42,7 +42,7 @@ class TestCardinalBspline:
         res = eval_cardinal_Bspline_basis_1D(5, pts)
         assert np.all(res >= -get_default_tolerance(res.dtype))
 
-    def test_outside_span_is_zero(self) -> None:
+    def test_outside_span(self) -> None:
         tol = get_default_tolerance(np.float64)
         pts = np.array(
             [
@@ -54,7 +54,16 @@ class TestCardinalBspline:
             dtype=np.float64,
         )
         res = eval_cardinal_Bspline_basis_1D(3, pts)
-        nptest.assert_allclose(res[[0, 2, 3]], 0.0)
+        exp = np.array(
+            [
+                [5.62500000e-01, 3.54166667e-01, 1.04166667e-01, -2.08333333e-02],
+                [1.66666667e-01, 6.66666667e-01, 1.66666667e-01, -1.66674107e-37],
+                [-1.66711121e-37, 1.66666667e-01, 6.66666667e-01, 1.66666667e-01],
+                [-1.66666667e-01, 6.66666667e-01, -8.33333333e-01, 1.33333333e00],
+            ],
+            dtype=np.float64,
+        )
+        nptest.assert_allclose(res, exp)
 
     def test_dtype_preservation(self) -> None:
         pts32 = np.array([0.0, 0.25, 0.5], dtype=np.float32)
