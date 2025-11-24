@@ -41,19 +41,28 @@ extensions = [
     "sphinx_rtd_dark_mode",
 ]
 
-JUPYTEXT_EXTENSION: Final[str] = "jupytext.sphinx"
-if importlib.util.find_spec(JUPYTEXT_EXTENSION) is None:
-    warnings.warn(
-        f"Skipping optional Sphinx extension {JUPYTEXT_EXTENSION!r}: module not found.",
-        stacklevel=1,
-    )
-    extensions = [ext for ext in extensions if ext != JUPYTEXT_EXTENSION]
+OPTIONAL_EXTENSIONS: Final[list[str]] = [
+    "jupytext.sphinx",
+    "sphinx_rtd_dark_mode",
+]
+
+for ext in OPTIONAL_EXTENSIONS:
+    try:
+        if importlib.util.find_spec(ext) is None:
+            raise ImportError
+    except (ImportError, ModuleNotFoundError):
+        if ext in extensions:
+            warnings.warn(
+                f"Skipping optional Sphinx extension {ext!r}: module not found.",
+                stacklevel=1,
+            )
+            extensions = [e for e in extensions if e != ext]
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", {}),
-    "numpy": ("https://numpy.org/doc/stable", {}),
-    "scipy": ("https://docs.scipy.org/doc/scipy/", {}),
-    "matplotlib": ("https://matplotlib.org/stable", {}),
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+    "matplotlib": ("https://matplotlib.org/stable", None),
 }
 
 templates_path = ["_templates"]
@@ -84,6 +93,15 @@ myst_enable_extensions = [
 ]
 
 html_theme = "sphinx_rtd_theme"
+try:
+    if importlib.util.find_spec("sphinx_rtd_theme") is None:
+        raise ImportError
+except (ImportError, ModuleNotFoundError):
+    warnings.warn(
+        "sphinx_rtd_theme not found. Falling back to 'alabaster'.",
+        stacklevel=1,
+    )
+    html_theme = "alabaster"
 html_static_path = ["_static"]
 html_show_sourcelink = True
 
