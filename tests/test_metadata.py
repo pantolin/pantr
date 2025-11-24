@@ -13,8 +13,59 @@ import pantr
 
 def test_package_all_exports() -> None:
     """Ensure all expected symbols are exported."""
-    expected: Final[set[str]] = {"__version__", "__license__", "__author__"}
-    assert set(pantr.__all__) == expected
+    # Check that metadata is in __all__
+    expected_metadata: Final[set[str]] = {"__version__", "__license__", "__author__"}
+    assert expected_metadata.issubset(set(pantr.__all__))
+
+    # Expected public API symbols (functions/classes that don't start with _)
+    expected_public_api: Final[set[str]] = {
+        # Basis functions
+        "LagrangeVariant",
+        "compute_Bernstein_basis",
+        "compute_Bernstein_basis_1D",
+        "compute_cardinal_Bspline_basis",
+        "compute_cardinal_Bspline_basis_1D",
+        "compute_Lagrange_basis",
+        "compute_Lagrange_basis_1D",
+        "compute_Legendre_basis_1D",
+        # B-spline space
+        "BsplineSpace1D",
+        "create_cardinal_Bspline_knot_vector",
+        "create_uniform_open_knot_vector",
+        "create_uniform_periodic_knot_vector",
+        # Change of basis
+        "compute_Bernstein_to_Lagrange_change_basis",
+        "compute_Bernstein_to_cardinal_change_basis",
+        "compute_cardinal_to_Bernstein_change_basis",
+        "compute_Lagrange_to_Bernstein_change_basis",
+        # Quadrature
+        "PointsLattice",
+        "create_Lagrange_points_lattice",
+        "get_chebyshev_gauss_1st_kind_quadrature_1D",
+        "get_chebyshev_gauss_2nd_kind_quadrature_1D",
+        "get_gauss_legendre_quadrature_1D",
+        "get_gauss_lobatto_legendre_quadrature_1D",
+        "get_trapezoidal_quadrature_1D",
+        # Tolerance
+        "ToleranceInfo",
+        "get_conservative_tolerance",
+        "get_default_tolerance",
+        "get_machine_epsilon",
+        "get_strict_tolerance",
+        "get_tolerance_info",
+    }
+
+    # All expected public API should be in __all__
+    assert expected_public_api.issubset(set(pantr.__all__))
+
+    # Check that no private symbols (starting with _) are in __all__
+    private_in_all = {name for name in pantr.__all__ if name.startswith("_")}
+    # Only allow metadata (__version__, __author__, __license__) to start with __
+    assert private_in_all.issubset(expected_metadata)
+
+    # Verify __all__ contains exactly the expected items
+    expected_all = expected_metadata | expected_public_api
+    assert set(pantr.__all__) == expected_all
 
 
 def test_package_metadata_values() -> None:
