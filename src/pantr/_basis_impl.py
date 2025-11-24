@@ -397,6 +397,110 @@ def _compute_Lagrange_basis_1D_impl(
     return _normalize_basis_output_1D(B, input_shape)
 
 
+@nb_jit(
+    [
+        nb.float32[:, :](nb.int32, nb.float32[:]),
+        nb.float64[:, :](nb.int32, nb.float64[:]),
+    ],
+    nopython=True,
+    cache=True,
+    parallel=False,
+)
+def _compute_Legendre_basis_1D_core(
+    n: np.int32, t: npt.NDArray[np.float32] | npt.NDArray[np.float64]
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Evaluate normalized Shifted Legendre basis polynomials of degree n at points t.
+
+    Computes all (n+1) basis polynomials p_i(t) for i=0,...,n
+    at each evaluation point in t. The result is a 2D array where B[j, i]
+    contains the value of the i-th basis polynomial evaluated at point t_j.
+
+    The implementation uses the recurrence relation for normalized shifted Legendre polynomials:
+    p_0(x) = 1
+    p_1(x) = sqrt(3)(2x-1)
+    p_i(x) = (sqrt(2i-1)sqrt(2i+1)/i) * (2x-1) * p_{i-1}(x)
+             - ((i-1)/i) * sqrt((2i+1)/(2i-3)) * p_{i-2}(x)
+
+    Args:
+        n (np.int32): Degree of the Legendre polynomials. Must be non-negative.
+        t (npt.NDArray[np.float32] | npt.NDArray[np.float64]): 1D array of
+            evaluation points.
+
+    Returns:
+        npt.NDArray[np.float32] | npt.NDArray[np.float64]: 2D array of shape
+        (len(t), n+1) containing the evaluated basis functions.
+    """
+    num_pts = t.shape[0]
+    B: npt.NDArray[np.float32 | np.float64] = np.zeros((num_pts, n + 1), dtype=t.dtype)
+
+    # p_0(x) = 1
+    B[:, 0] = 1.0
+
+    if n == 0:
+        return B
+
+    # p_1(x) = sqrt(3)(2x-1)
+    sqrt3 = np.sqrt(3.0)
+
+    # 2x - 1
+    two_x_minus_1 = 2.0 * t - 1.0
+    B[:, 1] = sqrt3 * two_x_minus_1
+
+    for i in range(2, n + 1):
+        # Coefficients
+        # a_i = (sqrt(2i-1)sqrt(2i+1)/i)
+        # b_i = ((i-1)/i) * sqrt((2i+1)/(2i-3))
+
+        i_float = float(i)
+        sqrt_2i_minus_1 = np.sqrt(2.0 * i_float - 1.0)
+        sqrt_2i_plus_1 = np.sqrt(2.0 * i_float + 1.0)
+        sqrt_2i_minus_3 = np.sqrt(2.0 * i_float - 3.0)
+
+        a_i = (sqrt_2i_minus_1 * sqrt_2i_plus_1) / i_float
+        b_i = ((i_float - 1.0) / i_float) * (sqrt_2i_plus_1 / sqrt_2i_minus_3)
+
+        B[:, i] = a_i * two_x_minus_1 * B[:, i - 1] - b_i * B[:, i - 2]
+
+    return B
+
+
+def _compute_Legendre_basis_1D_impl(
+    n: int, t: npt.ArrayLike
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Evaluate the normalized Shifted Legendre basis polynomials of the given degree.
+
+    Args:
+        n (int): Degree of the Legendre polynomials. Must be non-negative.
+        t (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Evaluated basis functions.
+
+    Raises:
+        ValueError: If degree is negative.
+    """
+    if n < 0:
+        raise ValueError("degree must be non-negative")
+
+    # Get input shape before normalization (handle scalars and lists)
+    if isinstance(t, np.ndarray):
+        input_shape = t.shape
+    elif isinstance(t, list | tuple):
+        input_shape = np.array(t).shape
+    else:  # scalar
+        input_shape = ()
+
+    t = _normalize_points_1D(t)
+
+    # Narrow union dtype for mypy by branching on dtype and casting accordingly.
+    if t.dtype == np.float32:
+        B = _compute_Legendre_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
+    else:
+        B = _compute_Legendre_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
+
+    return _normalize_basis_output_1D(B, input_shape)
+
+
 def _compute_basis_combinator_matrix_for_points_lattice(
     evaluators_1D: tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]],
     pts: PointsLattice,

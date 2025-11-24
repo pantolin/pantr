@@ -14,6 +14,7 @@ from ._basis_impl import (
     _compute_Bernstein_basis_1D_impl,
     _compute_cardinal_Bspline_basis_1D_impl,
     _compute_Lagrange_basis_1D_impl,
+    _compute_Legendre_basis_1D_impl,
 )
 
 if TYPE_CHECKING:
@@ -140,6 +141,31 @@ def compute_Lagrange_basis_1D(
         ValueError: If provided degree is negative.
     """
     return _compute_Lagrange_basis_1D_impl(degree, variant, pts)
+
+
+def compute_Legendre_basis_1D(
+    degree: int, pts: npt.ArrayLike
+) -> npt.NDArray[np.float32 | np.float64]:
+    r"""Evaluate the normalized Shifted Legendre basis polynomials at the given points.
+
+    The polynomials are defined on the interval [0, 1] and are orthonormal:
+    \[
+    \int_0^1 \tilde{p}_n(x) \tilde{p}_m(x) \, dx = \delta_{nm}
+    \]
+
+    Args:
+        degree (int): Degree of the Legendre basis. Must be non-negative.
+        pts (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
+            Types different from float32 or float64 are automatically converted to float64.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape
+        as the input points and the last dimension equal to (degree + 1).
+
+    Raises:
+        ValueError: If provided degree is negative.
+    """
+    return _compute_Legendre_basis_1D_impl(degree, pts)
 
 
 def compute_Bernstein_basis(
