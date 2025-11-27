@@ -475,11 +475,11 @@ class BsplineSpace1D:
         return _cached_unique_knots_and_multiplicity(knots_repr, degree, tol, in_domain)
 
     @functools.cached_property
-    def num_intervals(self) -> np.int_:
+    def num_intervals(self) -> int:
         """Get the number of intervals in the domain.
 
         Returns:
-            np.int_: Number of intervals.
+            int: Number of intervals.
 
         Example:
             >>> bspline = BsplineSpace1D([0, 0, 0, 1, 2, 2, 2], 2)
@@ -487,17 +487,17 @@ class BsplineSpace1D:
             2
         """
         unique_knots, _ = self.get_unique_knots_and_multiplicity(in_domain=True)
-        return np.int_(len(unique_knots) - 1)
+        return len(unique_knots) - 1
 
-    def _get_domain_indices(self) -> tuple[np.int_, np.int_]:
+    def _get_domain_indices(self) -> tuple[int, int]:
         """Get the domain boundary indices of the knot vector.
 
         I.e., the indices of the knot vector that define the domain.
 
         Returns:
-            tuple[np.int_, np.int_]: Tuple of (start_index, end_index) defining the domain.
+            tuple[int, int]: Tuple of (start_index, end_index) defining the domain.
         """
-        return (np.int_(self._degree), np.int_(self._knots.size - self._degree - 1))
+        return (self._degree, self._knots.size - self._degree - 1)
 
     @functools.cached_property
     def domain(self) -> tuple[np.float32 | np.float64, np.float32 | np.float64]:
