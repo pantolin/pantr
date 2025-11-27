@@ -1,4 +1,4 @@
-"""BsplineSpace1D utilities for open, floating, and periodic knot vectors."""
+"""BsplineSpace1D class and  utilities."""
 
 import functools
 from typing import cast
