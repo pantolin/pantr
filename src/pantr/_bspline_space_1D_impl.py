@@ -228,7 +228,7 @@ def _is_in_domain_impl(
     ],
     cache=True,
 )  # type: ignore[misc]
-def _compute_num_basis_impl(
+def _get_Bspline_num_basis_1D_impl(
     knots: npt.NDArray[np.float32 | np.float64],
     degree: int,
     periodic: bool,
@@ -373,7 +373,7 @@ def _compute_basis_Cox_de_Boor_impl(
 
     # Here we account for the case where the evaluation point
     # coincides with the last knot.
-    num_basis = _compute_num_basis_impl(knots, degree, periodic, tol)
+    num_basis = _get_Bspline_num_basis_1D_impl(knots, degree, periodic, tol)
     first_basis = np.minimum(knot_ids - degree, num_basis - order)
 
     for pt_id in range(n_pts):
@@ -412,7 +412,7 @@ def _compute_basis_Cox_de_Boor_impl(
     ],
     cache=True,
 )  # type: ignore[misc]
-def _get_cardinal_intervals_impl(
+def _get_Bspline_cardinal_intervals_1D_impl(
     knots: npt.NDArray[np.float32 | np.float64], degree: int, tol: float
 ) -> npt.NDArray[np.bool_]:
     """Get boolean array indicating whether intervals are cardinal.
@@ -467,7 +467,7 @@ def _get_cardinal_intervals_impl(
     ],
     cache=True,
 )  # type: ignore[misc]
-def _tabulate_bspline_Bezier_extraction_impl(
+def _tabulate_Bspline_Bezier_1D_extraction_impl(
     knots: npt.NDArray[np.float32 | np.float64], degree: int, tol: float
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Create Bézier extraction operators for each interval.
@@ -565,7 +565,7 @@ def _tabulate_bspline_Bezier_extraction_impl(
     return Cs
 
 
-def _tabulate_bspline_Lagrange_extraction_impl(
+def _tabulate_Bspline_Lagrange_1D_extraction_impl(
     knots: npt.NDArray[np.float32 | np.float64],
     degree: int,
     tol: float,
@@ -596,7 +596,7 @@ def _tabulate_bspline_Lagrange_extraction_impl(
 
     C = cast(
         npt.NDArray[np.float32 | np.float64],
-        _tabulate_bspline_Bezier_extraction_impl(knots, degree, tol),
+        _tabulate_Bspline_Bezier_1D_extraction_impl(knots, degree, tol),
     )
 
     dtype = knots.dtype
@@ -606,7 +606,7 @@ def _tabulate_bspline_Lagrange_extraction_impl(
     return C
 
 
-def _tabulate_bspline_cardinal_extraction_impl(
+def _tabulate_Bspline_cardinal_1D_extraction_impl(
     knots: npt.NDArray[np.float32 | np.float64],
     degree: int,
     tol: float,
@@ -636,14 +636,14 @@ def _tabulate_bspline_cardinal_extraction_impl(
 
     C = cast(
         npt.NDArray[np.float32 | np.float64],
-        _tabulate_bspline_Bezier_extraction_impl(knots, degree, tol),
+        _tabulate_Bspline_Bezier_1D_extraction_impl(knots, degree, tol),
     )
 
     dtype = knots.dtype
     card_to_bzr = compute_cardinal_to_Bernstein_change_basis(degree, dtype)
     C[:] = C @ card_to_bzr
 
-    for i in np.where(_get_cardinal_intervals_impl(knots, degree, tol))[0]:
+    for i in np.where(_get_Bspline_cardinal_intervals_1D_impl(knots, degree, tol))[0]:
         C[i, :, :] = np.eye(degree + 1, dtype=dtype)
     return C
 
@@ -883,7 +883,7 @@ def _coerce_scalar(
     return dtype_obj.type(array_value.astype(dtype_obj, copy=False).item())
 
 
-def _get_ends_and_type(
+def _get_knots_ends_and_dtype(
     start: float | int | np.floating[Any] | None = None,
     end: float | int | np.floating[Any] | None = None,
     dtype: npt.DTypeLike | None = None,
