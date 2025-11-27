@@ -10,7 +10,7 @@ import numpy.typing as npt
 import pytest
 
 from pantr._bspline_space_1D_impl import (
-    _get_ends_and_type,
+    _get_knots_ends_and_dtype,
     _validate_knot_input,
 )
 from pantr.bspline_space_1D import (
@@ -102,11 +102,11 @@ class TestValidateKnotInput:
 
 
 class TestGetEndsAndType:
-    """Tests for `_get_ends_and_type`."""
+    """Tests for `_get_knots_ends_and_dtype`."""
 
     def test_defaults(self) -> None:
         """Return default [0, 1] domain in float64."""
-        start, end, dtype = _get_ends_and_type()
+        start, end, dtype = _get_knots_ends_and_dtype()
         assert isinstance(start, np.float64)
         assert isinstance(end, np.float64)
         assert start == np.float64(0.0)
@@ -115,14 +115,14 @@ class TestGetEndsAndType:
 
     def test_provided_start_end(self) -> None:
         """Respect provided start and end values."""
-        start, end, dtype = _get_ends_and_type(start=0.5, end=2.0)
+        start, end, dtype = _get_knots_ends_and_dtype(start=0.5, end=2.0)
         assert start == np.float64(0.5)
         assert end == np.float64(2.0)
         assert dtype == np.dtype(np.float64)
 
     def test_provided_dtype(self) -> None:
         """Respect explicit dtype requests."""
-        start, end, dtype = _get_ends_and_type(dtype=np.float32)
+        start, end, dtype = _get_knots_ends_and_dtype(dtype=np.float32)
         assert isinstance(start, np.float32)
         assert isinstance(end, np.float32)
         assert start == np.float32(0.0)
@@ -131,7 +131,7 @@ class TestGetEndsAndType:
 
     def test_integer_inputs_promote_to_float64(self) -> None:
         """Promote integer inputs to float64."""
-        start, end, dtype = _get_ends_and_type(start=0, end=3)
+        start, end, dtype = _get_knots_ends_and_dtype(start=0, end=3)
         assert isinstance(start, np.float64)
         assert isinstance(end, np.float64)
         assert start == np.float64(0.0)
@@ -141,17 +141,17 @@ class TestGetEndsAndType:
     def test_end_less_than_start_error(self) -> None:
         """Reject decreasing domains."""
         with pytest.raises(ValueError, match="end must be greater than start"):
-            _get_ends_and_type(start=1.0, end=0.0)
+            _get_knots_ends_and_dtype(start=1.0, end=0.0)
 
     def test_inferred_dtype_mismatch_error(self) -> None:
         """Reject inconsistent scalar dtypes when inferring."""
         with pytest.raises(ValueError, match="start and end must have the same dtype"):
-            _get_ends_and_type(start=np.float32(0.0), end=np.float64(1.0))
+            _get_knots_ends_and_dtype(start=np.float32(0.0), end=np.float64(1.0))
 
     def test_requested_dtype_mismatch_error(self) -> None:
         """Reject scalars incompatible with requested dtype."""
         with pytest.raises(ValueError, match="start must be of type dtype float64"):
-            _get_ends_and_type(
+            _get_knots_ends_and_dtype(
                 start=np.float32(0.0),
                 end=np.float32(1.0),
                 dtype=np.float64,
@@ -160,12 +160,12 @@ class TestGetEndsAndType:
     def test_invalid_requested_dtype_error(self) -> None:
         """Reject non-floating dtype requests."""
         with pytest.raises(ValueError, match="dtype must be a floating-point type"):
-            _get_ends_and_type(dtype=np.int32)
+            _get_knots_ends_and_dtype(dtype=np.int32)
 
     def test_non_scalar_input_error(self) -> None:
         """Reject array-valued inputs when resolving start/end."""
         with pytest.raises(ValueError, match="start must be a scalar value"):
-            _get_ends_and_type(
+            _get_knots_ends_and_dtype(
                 start=cast(Any, np.array([0.0, 1.0], dtype=np.float64)),
             )
 

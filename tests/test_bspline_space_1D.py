@@ -8,16 +8,16 @@ import pytest
 from pantr._bspline_space_1D_impl import (
     _check_spline_info,
     _compute_basis_Cox_de_Boor_impl,
-    _compute_num_basis_impl,
-    _get_cardinal_intervals_impl,
+    _get_Bspline_cardinal_intervals_1D_impl,
+    _get_Bspline_num_basis_1D_impl,
     _get_last_knot_smaller_equal_impl,
     _get_multiplicity_of_first_knot_in_domain_impl,
     _get_unique_knots_and_multiplicity_impl,
     _is_in_domain_impl,
     _tabulate_Bspline_basis_Bernstein_like_1D,
-    _tabulate_bspline_Bezier_extraction_impl,
-    _tabulate_bspline_cardinal_extraction_impl,
-    _tabulate_bspline_Lagrange_extraction_impl,
+    _tabulate_Bspline_Bezier_1D_extraction_impl,
+    _tabulate_Bspline_cardinal_1D_extraction_impl,
+    _tabulate_Bspline_Lagrange_1D_extraction_impl,
 )
 from pantr.basis import (
     LagrangeVariant,
@@ -586,7 +586,7 @@ class TestComputeNumBasis:
         degree = 2
         periodic = False
         tol = 1e-10
-        result = _compute_num_basis_impl(knots, degree, periodic, tol)
+        result = _get_Bspline_num_basis_1D_impl(knots, degree, periodic, tol)
         # knots.size - degree - 1 = 6 - 2 - 1 = 3
         assert result == 3  # noqa: PLR2004
 
@@ -596,7 +596,7 @@ class TestComputeNumBasis:
         degree = 2
         periodic = True
         tol = 1e-10
-        result = _compute_num_basis_impl(knots, degree, periodic, tol)
+        result = _get_Bspline_num_basis_1D_impl(knots, degree, periodic, tol)
         # For periodic: num_basis = knots.size - degree - 1 - regularity - 1
         # regularity = degree - multiplicity_of_first_knot_in_domain
         # multiplicity_of_first_knot_in_domain = 1
@@ -609,7 +609,7 @@ class TestComputeNumBasis:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         with pytest.raises(ValueError, match="tol must be positive"):
-            _compute_num_basis_impl(knots, degree, False, -1.0)
+            _get_Bspline_num_basis_1D_impl(knots, degree, False, -1.0)
 
 
 class TestGetLastKnotSmallerEqual:
@@ -717,14 +717,14 @@ class TestEvaluateBasisCoxDeBoor:
 
 
 class TestGetCardinalIntervals:
-    """Test the _get_cardinal_intervals_impl function."""
+    """Test the _get_Bspline_cardinal_intervals_1D_impl function."""
 
     def test_uniform_knot_vector(self) -> None:
         """Test cardinal intervals for uniform knot vector."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _get_cardinal_intervals_impl(knots, degree, tol)
+        result = _get_Bspline_cardinal_intervals_1D_impl(knots, degree, tol)
 
         # Should have 4 intervals, middle ones should be cardinal
         expected = np.array([False, True, True, False])
@@ -735,7 +735,7 @@ class TestGetCardinalIntervals:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 5.0, 5.0, 5.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _get_cardinal_intervals_impl(knots, degree, tol)
+        result = _get_Bspline_cardinal_intervals_1D_impl(knots, degree, tol)
 
         # Should have 4 intervals, some might be cardinal due to uniform spacing in some regions
         expected = np.array([False, True, False, False])
@@ -746,7 +746,7 @@ class TestGetCardinalIntervals:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _get_cardinal_intervals_impl(knots, degree, tol)
+        result = _get_Bspline_cardinal_intervals_1D_impl(knots, degree, tol)
 
         # Should return all False
         expected = np.array([False])
@@ -761,7 +761,7 @@ class TestCreateBsplineBezierExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _tabulate_bspline_Bezier_extraction_impl(knots, degree, tol)
+        result = _tabulate_Bspline_Bezier_1D_extraction_impl(knots, degree, tol)
 
         # Should have 1 interval, 3x3 extraction matrix
         assert result.shape == (1, 3, 3)
@@ -774,7 +774,7 @@ class TestCreateBsplineBezierExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _tabulate_bspline_Bezier_extraction_impl(knots, degree, tol)
+        result = _tabulate_Bspline_Bezier_1D_extraction_impl(knots, degree, tol)
 
         # Should have 2 intervals, 3x3 extraction matrices
         assert result.shape == (2, 3, 3)
@@ -788,7 +788,7 @@ class TestCreateBsplineBezierExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         with pytest.raises(ValueError, match="tol must be positive"):
-            _tabulate_bspline_Bezier_extraction_impl(knots, degree, -1.0)
+            _tabulate_Bspline_Bezier_1D_extraction_impl(knots, degree, -1.0)
 
     def test_public_method(self) -> None:
         """Test the public tabulate_Bezier_extraction_operators method."""
@@ -801,7 +801,7 @@ class TestCreateBsplineBezierExtractionOperators:
         assert result.shape == (2, 3, 3)
 
         # Should match the implementation
-        expected = _tabulate_bspline_Bezier_extraction_impl(
+        expected = _tabulate_Bspline_Bezier_1D_extraction_impl(
             np.array(knots, dtype=np.float64), degree, spline.tolerance
         )
         np.testing.assert_array_almost_equal(result, expected)
@@ -815,7 +815,7 @@ class TestCreateBsplineLagrangeExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _tabulate_bspline_Lagrange_extraction_impl(knots, degree, tol)
+        result = _tabulate_Bspline_Lagrange_1D_extraction_impl(knots, degree, tol)
 
         # Should have 1 interval, 3x3 extraction matrix
         assert result.shape == (1, 3, 3)
@@ -829,7 +829,7 @@ class TestCreateBsplineLagrangeExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _tabulate_bspline_Lagrange_extraction_impl(knots, degree, tol)
+        result = _tabulate_Bspline_Lagrange_1D_extraction_impl(knots, degree, tol)
 
         # Should have 2 intervals, 3x3 extraction matrices
         assert result.shape == (2, 3, 3)
@@ -843,7 +843,7 @@ class TestCreateBsplineLagrangeExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 3.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _tabulate_bspline_Lagrange_extraction_impl(knots, degree, tol)
+        result = _tabulate_Bspline_Lagrange_1D_extraction_impl(knots, degree, tol)
 
         # Should have 3 intervals, 3x3 extraction matrices
         assert result.shape == (3, 3, 3)
@@ -857,7 +857,7 @@ class TestCreateBsplineLagrangeExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         with pytest.raises(ValueError, match="tol must be positive"):
-            _tabulate_bspline_Lagrange_extraction_impl(knots, degree, -1.0)
+            _tabulate_Bspline_Lagrange_1D_extraction_impl(knots, degree, -1.0)
 
     def test_public_method(self) -> None:
         """Test the public tabulate_Lagrange_extraction_operators method."""
@@ -870,7 +870,7 @@ class TestCreateBsplineLagrangeExtractionOperators:
         assert result.shape == (2, 3, 3)
 
         # Should match the implementation
-        expected = _tabulate_bspline_Lagrange_extraction_impl(
+        expected = _tabulate_Bspline_Lagrange_1D_extraction_impl(
             np.array(knots, dtype=np.float64), degree, spline.tolerance
         )
         np.testing.assert_array_almost_equal(result, expected)
@@ -880,7 +880,7 @@ class TestCreateBsplineLagrangeExtractionOperators:
         for degree in [1, 2, 3, 4]:
             knots = [0.0] * (degree + 1) + [1.0] * (degree + 1)
             tol = 1e-10
-            result = _tabulate_bspline_Lagrange_extraction_impl(
+            result = _tabulate_Bspline_Lagrange_1D_extraction_impl(
                 np.array(knots, dtype=np.float64), degree, tol
             )
 
@@ -892,7 +892,7 @@ class TestCreateBsplineLagrangeExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float32)
         degree = 2
         tol = 1e-6
-        result = _tabulate_bspline_Lagrange_extraction_impl(knots, degree, tol)
+        result = _tabulate_Bspline_Lagrange_1D_extraction_impl(knots, degree, tol)
 
         assert result.dtype == np.float32
         assert result.shape == (1, 3, 3)
@@ -906,7 +906,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _tabulate_bspline_cardinal_extraction_impl(knots, degree, tol)
+        result = _tabulate_Bspline_cardinal_1D_extraction_impl(knots, degree, tol)
 
         # Should have 1 interval, 3x3 extraction matrix
         assert result.shape == (1, 3, 3)
@@ -919,7 +919,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _tabulate_bspline_cardinal_extraction_impl(knots, degree, tol)
+        result = _tabulate_Bspline_cardinal_1D_extraction_impl(knots, degree, tol)
 
         # Should have 2 intervals, 3x3 extraction matrices
         assert result.shape == (2, 3, 3)
@@ -933,13 +933,13 @@ class TestCreateBsplineCardinalExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        result = _tabulate_bspline_cardinal_extraction_impl(knots, degree, tol)
+        result = _tabulate_Bspline_cardinal_1D_extraction_impl(knots, degree, tol)
 
         # Should have 4 intervals
         assert result.shape == (4, 3, 3)
 
         # Get which intervals are cardinal
-        cardinal_intervals = _get_cardinal_intervals_impl(knots, degree, tol)
+        cardinal_intervals = _get_Bspline_cardinal_intervals_1D_impl(knots, degree, tol)
 
         # Cardinal intervals should have identity matrices
         for i in np.where(cardinal_intervals)[0]:
@@ -954,7 +954,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         with pytest.raises(ValueError, match="tol must be positive"):
-            _tabulate_bspline_cardinal_extraction_impl(knots, degree, -1.0)
+            _tabulate_Bspline_cardinal_1D_extraction_impl(knots, degree, -1.0)
 
     def test_public_method(self) -> None:
         """Test the public tabulate_cardinal_extraction_operators method."""
@@ -967,7 +967,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         assert result.shape == (4, 3, 3)
 
         # Should match the implementation
-        expected = _tabulate_bspline_cardinal_extraction_impl(
+        expected = _tabulate_Bspline_cardinal_1D_extraction_impl(
             np.array(knots, dtype=np.float64), degree, spline.tolerance
         )
         np.testing.assert_array_almost_equal(result, expected)
@@ -982,7 +982,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         for degree in [1, 2, 3]:
             knots = [0.0] * (degree + 1) + [1.0, 2.0] + [3.0] * (degree + 1)
             tol = 1e-10
-            result = _tabulate_bspline_cardinal_extraction_impl(
+            result = _tabulate_Bspline_cardinal_1D_extraction_impl(
                 np.array(knots, dtype=np.float64), degree, tol
             )
 
@@ -995,7 +995,7 @@ class TestCreateBsplineCardinalExtractionOperators:
         knots = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 3.0, 3.0], dtype=np.float32)
         degree = 2
         tol = 1e-6
-        result = _tabulate_bspline_cardinal_extraction_impl(knots, degree, tol)
+        result = _tabulate_Bspline_cardinal_1D_extraction_impl(knots, degree, tol)
 
         assert result.dtype == np.float32
         assert result.shape == (3, 3, 3)
@@ -1006,10 +1006,10 @@ class TestCreateBsplineCardinalExtractionOperators:
         knots = create_uniform_open_knot_vector(num_intervals=3, degree=2, domain=(0.0, 1.0))
         degree = 2
         tol = 1e-10
-        result = _tabulate_bspline_cardinal_extraction_impl(knots, degree, tol)
+        result = _tabulate_Bspline_cardinal_1D_extraction_impl(knots, degree, tol)
 
         # Check cardinal intervals
-        cardinal_intervals = _get_cardinal_intervals_impl(knots, degree, tol)
+        cardinal_intervals = _get_Bspline_cardinal_intervals_1D_impl(knots, degree, tol)
 
         # All cardinal intervals should be identity
         for i in np.where(cardinal_intervals)[0]:
@@ -1049,7 +1049,7 @@ class TestAdditionalEdgeCases:
         knots = np.array([0.0, 0.1, 0.1, 0.5, 1.0, 1.0], dtype=np.float64)
         degree = 2
         tol = 1e-10
-        Cs = _tabulate_bspline_Bezier_extraction_impl(knots, degree, tol)
+        Cs = _tabulate_Bspline_Bezier_1D_extraction_impl(knots, degree, tol)
         # Shape sanity
         assert Cs.shape[1:] == (degree + 1, degree + 1)
         # The first element matrix should be modified from identity when mult < degree+1
@@ -1130,7 +1130,7 @@ class TestBsplineSpace1DCoverageTargets:
         """Cover branch where first-domain multiplicity == 1 (degree=2 => reg=1)."""
         # degree=2, first three knots are all different so multiplicity at index 2 is 1
         knots = np.array([0.0, 0.1, 0.2, 0.6, 1.0, 1.0], dtype=np.float64)
-        Cs = _tabulate_bspline_Bezier_extraction_impl(knots, 2, 1e-10)
+        Cs = _tabulate_Bspline_Bezier_1D_extraction_impl(knots, 2, 1e-10)
         # At least one coefficient in the first extraction matrix should differ from identity
         assert Cs.shape[1:] == (3, 3)
         assert not np.allclose(Cs[0], np.eye(3))

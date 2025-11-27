@@ -7,14 +7,14 @@ import numpy as np
 from numpy import typing as npt
 
 from ._bspline_space_1D_impl import (
-    _compute_num_basis_impl,
-    _get_cardinal_intervals_impl,
-    _get_ends_and_type,
+    _get_Bspline_cardinal_intervals_1D_impl,
+    _get_Bspline_num_basis_1D_impl,
+    _get_knots_ends_and_dtype,
     _get_unique_knots_and_multiplicity_impl,
     _tabulate_Bspline_basis_1D_impl,
-    _tabulate_bspline_Bezier_extraction_impl,
-    _tabulate_bspline_cardinal_extraction_impl,
-    _tabulate_bspline_Lagrange_extraction_impl,
+    _tabulate_Bspline_Bezier_1D_extraction_impl,
+    _tabulate_Bspline_cardinal_1D_extraction_impl,
+    _tabulate_Bspline_Lagrange_1D_extraction_impl,
     _validate_knot_input,
 )
 from .tolerance import get_strict_tolerance
@@ -62,7 +62,7 @@ def create_uniform_open_knot_vector(
         start_value = start_raw if isinstance(start_raw, np.floating) else np.float64(start_raw)
         end_value = end_raw if isinstance(end_raw, np.floating) else np.float64(end_raw)
 
-    start, end, dtype = _get_ends_and_type(start_value, end_value, dtype)
+    start, end, dtype = _get_knots_ends_and_dtype(start_value, end_value, dtype)
 
     continuity = degree - 1 if continuity is None else continuity
 
@@ -128,7 +128,7 @@ def create_uniform_periodic_knot_vector(
         start_value = start_raw if isinstance(start_raw, np.floating) else np.float64(start_raw)
         end_value = end_raw if isinstance(end_raw, np.floating) else np.float64(end_raw)
 
-    start, end, dtype = _get_ends_and_type(start_value, end_value, dtype)
+    start, end, dtype = _get_knots_ends_and_dtype(start_value, end_value, dtype)
     continuity = degree - 1 if continuity is None else continuity
 
     _validate_knot_input(
@@ -358,7 +358,7 @@ class BsplineSpace1D:
         if not np.all(np.diff(knots) >= 0):
             raise ValueError("knots must be non-decreasing")
 
-        num_basis = _compute_num_basis_impl(knots, degree, periodic, tol)
+        num_basis = _get_Bspline_num_basis_1D_impl(knots, degree, periodic, tol)
         if num_basis < (degree + 1):
             raise ValueError("Not enough knots for the specified degree")
 
@@ -451,7 +451,7 @@ class BsplineSpace1D:
         """
         return cast(
             int,
-            _compute_num_basis_impl(self._knots, self._degree, self._periodic, self._tol),
+            _get_Bspline_num_basis_1D_impl(self._knots, self._degree, self._periodic, self._tol),
         )
 
     def get_unique_knots_and_multiplicity(
@@ -598,7 +598,7 @@ class BsplineSpace1D:
         """
         return cast(
             npt.NDArray[np.bool_],
-            _get_cardinal_intervals_impl(self._knots, self._degree, self._tol),
+            _get_Bspline_cardinal_intervals_1D_impl(self._knots, self._degree, self._tol),
         )
 
     def tabulate_basis(
@@ -650,7 +650,7 @@ class BsplineSpace1D:
         """
         return cast(
             npt.NDArray[np.float32 | np.float64],
-            _tabulate_bspline_Bezier_extraction_impl(self.knots, self.degree, self.tolerance),
+            _tabulate_Bspline_Bezier_1D_extraction_impl(self.knots, self.degree, self.tolerance),
         )
 
     def tabulate_Lagrange_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
@@ -665,7 +665,9 @@ class BsplineSpace1D:
                 to B-spline basis functions for the i-th interval as
                     C[i, :, :] @ [Lagrange values] = [B-spline values in interval].
         """
-        return _tabulate_bspline_Lagrange_extraction_impl(self.knots, self.degree, self.tolerance)
+        return _tabulate_Bspline_Lagrange_1D_extraction_impl(
+            self.knots, self.degree, self.tolerance
+        )
 
     def tabulate_cardinal_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
         """Create cardinal B-spline extraction operators of the B-spline.
@@ -679,4 +681,6 @@ class BsplineSpace1D:
                 to B-spline basis functions for the i-th interval as
                     C[i, :, :] @ [cardinal values] = [B-spline values in interval].
         """
-        return _tabulate_bspline_cardinal_extraction_impl(self.knots, self.degree, self.tolerance)
+        return _tabulate_Bspline_cardinal_1D_extraction_impl(
+            self.knots, self.degree, self.tolerance
+        )
