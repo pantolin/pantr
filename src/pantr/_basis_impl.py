@@ -10,7 +10,11 @@ import numpy as np
 import numpy.typing as npt
 from scipy.interpolate import BarycentricInterpolator
 
-from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
+from ._basis_utils import (
+    _normalize_basis_output_1D,
+    _normalize_points_1D,
+    _validate_out_array_1D,
+)
 from .quad import (
     PointsLattice,
     get_chebyshev_gauss_1st_kind_quadrature_1D,
@@ -38,21 +42,23 @@ else:
 
 @nb_jit(
     [
-        nb.float32[:, :](nb.int32, nb.float32[:]),
-        nb.float64[:, :](nb.int32, nb.float64[:]),
+        nb.void(nb.int32, nb.float32[:], nb.float32[:, :]),
+        nb.void(nb.int32, nb.float64[:], nb.float64[:, :]),
     ],
     nopython=True,
     cache=True,
     parallel=False,
 )
 def _tabulate_Bernstein_basis_1D_core(
-    n: np.int32, t: npt.NDArray[np.float32] | npt.NDArray[np.float64]
-) -> npt.NDArray[np.float32 | np.float64]:
+    n: np.int32,
+    t: npt.NDArray[np.float32] | npt.NDArray[np.float64],
+    out: npt.NDArray[np.float32] | npt.NDArray[np.float64],
+) -> None:
     """Evaluate Bernstein basis polynomials of degree n at points t.
 
     Computes all (n+1) Bernstein basis polynomials B_i,n(t) for i=0,...,n
-    at each evaluation point in t. The result is a 2D array where B[j, i]
-    contains the value of the i-th basis polynomial evaluated at point t_j.
+    at each evaluation point in t. Writes the result to the provided output array,
+    where out[j, i] contains the value of the i-th basis polynomial evaluated at point t_j.
 
     The implementation uses a recurrence relation for efficient computation:
     - Base case: B_0,n(t) = (1-t)^n
@@ -68,54 +74,46 @@ def _tabulate_Bernstein_basis_1D_core(
             evaluation points. Must be a contiguous array of float32 or float64
             values. Points should typically be in [0, 1], though the function
             will compute values for any real t.
-
-    Returns:
-        npt.NDArray[np.float32] | npt.NDArray[np.float64]: 2D array of shape
-        (len(t), n+1) containing the evaluated basis functions. The dtype
-        matches the dtype of t (float32 or float64). Element B[j, i] contains
-        B_i,n(t_j).
+        out (npt.NDArray[np.float32] | npt.NDArray[np.float64]): Output array
+            of shape (len(t), n+1) and dtype matching t. The function writes
+            the evaluated basis functions to this array. Must have the correct
+            shape and dtype (no validation performed inside this numba-compiled function).
 
     Note:
         This is a Numba-compiled function optimized for performance. It
-        expects pre-normalized inputs (1D contiguous arrays).         For general
-        use, call _tabulate_Bernstein_basis_1D_impl instead.
+        expects pre-normalized inputs (1D contiguous arrays) and assumes the
+        output array has the correct shape and dtype. For general use,
+        call _tabulate_Bernstein_basis_1D_impl instead.
     """
     if n == 0:
         # The basis is just B_0,0(pts) = 1
-        ones: npt.NDArray[np.float32 | np.float64] = np.ones((t.shape[0], 1), dtype=t.dtype)
-        return ones
+        for j in range(out.shape[0]):
+            out[j, 0] = 1.0
+        return
 
-    # Initialize the output array
-    # B[j, i] will hold B_i,n(t_j)
-    B: npt.NDArray[np.float32 | np.float64] = np.zeros((t.shape[0], n + 1), dtype=t.dtype)
-
-    # 1. Handle points where t is not 1.0
-    idx_t_ne_1 = np.where(t != 1.0)[0]
-    if idx_t_ne_1.size > 0:
-        t_ne_1: npt.NDArray[np.float32 | np.float64] = t[idx_t_ne_1]
-        B_ne_1: npt.NDArray[np.float32 | np.float64] = np.zeros(
-            (t_ne_1.shape[0], n + 1), dtype=t.dtype
-        )
-        B_ne_1[:, 0] = np.power(1.0 - t_ne_1, n)
-        t_over_1mt: npt.NDArray[np.float32 | np.float64] = t_ne_1 / (1.0 - t_ne_1)
-        for i in range(1, n + 1):
-            const_factor: npt.NDArray[np.float32 | np.float64] = np.full(
-                t_ne_1.shape, (n - i + 1) / i, dtype=t.dtype
-            )
-            B_ne_1[:, i] = B_ne_1[:, i - 1] * const_factor * t_over_1mt
-        B[idx_t_ne_1] = B_ne_1
-
-    # 2. Handle points where t is 1.0
-    idx_t_eq_1 = np.where(t == 1.0)[0]
-    if idx_t_eq_1.size > 0:
-        B[idx_t_eq_1, :] = 0.0
-        B[idx_t_eq_1, -1] = 1.0
-
-    return B
+    # Process each point
+    for j in range(t.shape[0]):
+        u = t[j]
+        if u == 1.0:
+            # At t=1.0: only B_n,n(1) = 1, all others are 0
+            for i in range(out.shape[1]):
+                out[j, i] = 0.0
+            out[j, n] = 1.0
+        else:
+            # For t != 1.0, use recurrence relation
+            one_minus_u = 1.0 - u
+            out[j, 0] = np.power(one_minus_u, n)
+            if n > 0:
+                t_over_1mt = u / one_minus_u
+                for i in range(1, n + 1):
+                    const_factor = (n - i + 1.0) / i
+                    out[j, i] = out[j, i - 1] * const_factor * t_over_1mt
 
 
 def _tabulate_Bernstein_basis_1D_impl(
-    n: int, t: npt.ArrayLike
+    n: int,
+    t: npt.ArrayLike,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the Bernstein basis polynomials of the given degree at the given points.
 
@@ -123,13 +121,18 @@ def _tabulate_Bernstein_basis_1D_impl(
         n (int): Degree of the Bernstein polynomials. Must be non-negative.
         t (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
             Types different from float32 or float64 are automatically converted to float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype if provided. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape
         as the input points and the last dimension equal to (degree + 1).
+        If `out` was provided, returns the same array.
 
     Raises:
-        ValueError: If degree is negative.
+        ValueError: If degree is negative, or if `out` is provided and has incorrect
+            shape or dtype.
 
     Example:
         >>> _tabulate_Bernstein_basis_1D_impl(2, [0.0, 0.5, 0.75, 1.0])
@@ -150,28 +153,47 @@ def _tabulate_Bernstein_basis_1D_impl(
         input_shape = ()
 
     t = _normalize_points_1D(t)
+    num_pts = t.shape[0]
+    n_basis = n + 1
 
-    # Narrow union dtype for mypy by branching on dtype and casting accordingly.
-    if t.dtype == np.float32:
-        B = _tabulate_Bernstein_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
+    # Determine expected shape for normalized output (before reshaping)
+    expected_normalized_shape = (num_pts, n_basis)
+
+    # Allocate or validate output array
+    if out is None:
+        B = np.empty(expected_normalized_shape, dtype=t.dtype)
     else:
-        B = _tabulate_Bernstein_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
+        # Validate that out has correct shape and dtype
+        _validate_out_array_1D(out, expected_normalized_shape, cast(npt.DTypeLike, t.dtype))
+        B = out
+
+    # Call core function to compute values
+    if t.dtype == np.float32:
+        _tabulate_Bernstein_basis_1D_core(
+            np.int32(n), cast(npt.NDArray[np.float32], t), cast(npt.NDArray[np.float32], B)
+        )
+    else:
+        _tabulate_Bernstein_basis_1D_core(
+            np.int32(n), cast(npt.NDArray[np.float64], t), cast(npt.NDArray[np.float64], B)
+        )
 
     return _normalize_basis_output_1D(B, input_shape)
 
 
 @nb_jit(
     [
-        nb.float32[:, :](nb.int32, nb.float32[:]),
-        nb.float64[:, :](nb.int32, nb.float64[:]),
+        nb.void(nb.int32, nb.float32[:], nb.float32[:, :]),
+        nb.void(nb.int32, nb.float64[:], nb.float64[:, :]),
     ],
     nopython=True,
     cache=True,
     parallel=False,
 )
 def _tabulate_cardinal_Bspline_basis_1D_core(
-    n: np.int32, t: npt.NDArray[np.float32] | npt.NDArray[np.float64]
-) -> npt.NDArray[np.float32 | np.float64]:
+    n: np.int32,
+    t: npt.NDArray[np.float32] | npt.NDArray[np.float64],
+    out: npt.NDArray[np.float32] | npt.NDArray[np.float64],
+) -> None:
     """Evaluate the central cardinal B-spline basis of degree n on [0, 1].
 
     Computes the (n+1) nonzero B-spline basis functions active over the central
@@ -180,39 +202,41 @@ def _tabulate_cardinal_Bspline_basis_1D_core(
     Cox-de Boor (BasisFuns) recursion specialized to span index i=0.
 
     Args:
-        n: Degree of the B-spline basis (>= 0).
-        t: 1D array of evaluation points (float32 or float64).
-
-    Returns:
-        2D array of shape (len(t), n+1) with evaluated basis values.
+        n (np.int32): Degree of the B-spline basis (>= 0).
+        t (npt.NDArray[np.float32] | npt.NDArray[np.float64]): 1D array of
+            evaluation points (float32 or float64).
+        out (npt.NDArray[np.float32] | npt.NDArray[np.float64]): Output array
+            of shape (len(t), n+1) and dtype matching t. The function writes
+            the evaluated basis functions to this array. Must have the correct
+            shape and dtype (no validation performed inside this numba-compiled function).
     """
     num_pts = t.shape[0]
-    out: npt.NDArray[np.float32 | np.float64] = np.zeros((num_pts, n + 1), dtype=t.dtype)
-    out[:, 0] = 1.0
+    # Initialize first column to 1.0
+    for j in range(num_pts):
+        out[j, 0] = 1.0
 
     if n == 0:  # Degree-0: basis function is constant.
-        return out
+        return
 
     for j in range(num_pts):
         u = t[j]
         one_minus_u = 1.0 - u
 
-        N = out[j, :]
         for k in range(1, n + 1):
             inv_k = 1.0 / k
             saved = 0.0
             for r in range(k):
-                Nr_old = N[r]
+                Nr_old = out[j, r]
                 term = (r + one_minus_u) * inv_k
-                N[r] = saved + Nr_old * term
+                out[j, r] = saved + Nr_old * term
                 saved = Nr_old * (1.0 - term)
-            N[k] = saved
-
-    return out
+            out[j, k] = saved
 
 
 def _tabulate_cardinal_Bspline_basis_1D_impl(
-    n: int, t: npt.ArrayLike
+    n: int,
+    t: npt.ArrayLike,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate the cardinal B-spline basis polynomials of given degree at given points.
 
@@ -236,13 +260,18 @@ def _tabulate_cardinal_Bspline_basis_1D_impl(
         n (int): Degree of the B-spline basis. Must be non-negative.
         t (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
             Types different from float32 or float64 are automatically converted to float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype if provided. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape
         as the input points and the last dimension equal to (degree + 1).
+        If `out` was provided, returns the same array.
 
     Raises:
-        ValueError: If provided degree is negative.
+        ValueError: If provided degree is negative, or if `out` is provided and has incorrect
+            shape or dtype.
 
     Example:
         >>> tabulate_cardinal_Bspline_basis_1D(2, [0.0, 0.5, 1.0])
@@ -264,12 +293,29 @@ def _tabulate_cardinal_Bspline_basis_1D_impl(
         input_shape = ()
 
     t = _normalize_points_1D(t)
+    num_pts = t.shape[0]
+    n_basis = n + 1
 
-    # Narrow union dtype for mypy by branching on dtype and casting accordingly.
-    if t.dtype == np.float32:
-        B = _tabulate_cardinal_Bspline_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
+    # Determine expected shape for normalized output (before reshaping)
+    expected_normalized_shape = (num_pts, n_basis)
+
+    # Allocate or validate output array
+    if out is None:
+        B = np.empty(expected_normalized_shape, dtype=t.dtype)
     else:
-        B = _tabulate_cardinal_Bspline_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
+        # Validate that out has correct shape and dtype
+        _validate_out_array_1D(out, expected_normalized_shape, cast(npt.DTypeLike, t.dtype))
+        B = out
+
+    # Call core function to compute values
+    if t.dtype == np.float32:
+        _tabulate_cardinal_Bspline_basis_1D_core(
+            np.int32(n), cast(npt.NDArray[np.float32], t), cast(npt.NDArray[np.float32], B)
+        )
+    else:
+        _tabulate_cardinal_Bspline_basis_1D_core(
+            np.int32(n), cast(npt.NDArray[np.float64], t), cast(npt.NDArray[np.float64], B)
+        )
 
     return _normalize_basis_output_1D(B, input_shape)
 
@@ -308,7 +354,10 @@ def _get_lagrange_points(
 
 
 def _tabulate_Lagrange_basis_1D_impl(
-    n: int, variant: LagrangeVariant, t: npt.ArrayLike
+    n: int,
+    variant: LagrangeVariant,
+    t: npt.ArrayLike,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate Lagrange basis polynomials at points using the specified variant.
 
@@ -326,13 +375,18 @@ def _tabulate_Lagrange_basis_1D_impl(
         variant (LagrangeVariant): Variant of the Lagrange basis.
         t (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
             Types different from float32 or float64 are automatically converted to float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype if provided. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape
         as the input points and the last dimension equal to (degree + 1).
+        If `out` was provided, returns the same array.
 
     Raises:
-        ValueError: If provided degree is negative.
+        ValueError: If provided degree is negative, or if `out` is provided and has incorrect
+            shape or dtype.
     """
     if n < 0:
         raise ValueError("degree must be non-negative")
@@ -347,16 +401,24 @@ def _tabulate_Lagrange_basis_1D_impl(
 
     t = _normalize_points_1D(t)
 
+    num_eval = t.shape[0]
+    n_pts = n + 1
+    expected_normalized_shape = (num_eval, n_pts)
+
+    # Allocate or validate output array
+    if out is None:
+        B = np.empty(expected_normalized_shape, dtype=t.dtype)
+    else:
+        # Validate that out has correct shape and dtype
+        _validate_out_array_1D(out, expected_normalized_shape, cast(npt.DTypeLike, t.dtype))
+        B = out
+
     # Degree-zero: basis is constant 1 for all evaluation points and variants.
     if n == 0:
-        ones = np.ones((t.shape[0], 1), dtype=t.dtype)
-        return _normalize_basis_output_1D(ones, input_shape)
+        B[:, 0] = 1.0
+        return _normalize_basis_output_1D(B, input_shape)
 
     nodes = _get_lagrange_points(variant, n + 1, t.dtype)
-
-    num_eval = t.shape[0]
-    n_pts = nodes.shape[0]  # equals n + 1
-    B = np.zeros((num_eval, n_pts), dtype=t.dtype)
 
     # Ensure nodes are strictly increasing for numerical robustness and consistency
     perm = np.argsort(nodes)
@@ -399,21 +461,23 @@ def _tabulate_Lagrange_basis_1D_impl(
 
 @nb_jit(
     [
-        nb.float32[:, :](nb.int32, nb.float32[:]),
-        nb.float64[:, :](nb.int32, nb.float64[:]),
+        nb.void(nb.int32, nb.float32[:], nb.float32[:, :]),
+        nb.void(nb.int32, nb.float64[:], nb.float64[:, :]),
     ],
     nopython=True,
     cache=True,
     parallel=False,
 )
 def _tabulate_Legendre_basis_1D_core(
-    n: np.int32, t: npt.NDArray[np.float32] | npt.NDArray[np.float64]
-) -> npt.NDArray[np.float32 | np.float64]:
+    n: np.int32,
+    t: npt.NDArray[np.float32] | npt.NDArray[np.float64],
+    out: npt.NDArray[np.float32] | npt.NDArray[np.float64],
+) -> None:
     """Evaluate normalized Shifted Legendre basis polynomials of degree n at points t.
 
     Computes all (n+1) basis polynomials p_i(t) for i=0,...,n
-    at each evaluation point in t. The result is a 2D array where B[j, i]
-    contains the value of the i-th basis polynomial evaluated at point t_j.
+    at each evaluation point in t. Writes the result to the provided output array,
+    where out[j, i] contains the value of the i-th basis polynomial evaluated at point t_j.
 
     The implementation uses the recurrence relation for normalized shifted Legendre polynomials:
     p_0(x) = 1
@@ -425,26 +489,27 @@ def _tabulate_Legendre_basis_1D_core(
         n (np.int32): Degree of the Legendre polynomials. Must be non-negative.
         t (npt.NDArray[np.float32] | npt.NDArray[np.float64]): 1D array of
             evaluation points.
-
-    Returns:
-        npt.NDArray[np.float32] | npt.NDArray[np.float64]: 2D array of shape
-        (len(t), n+1) containing the evaluated basis functions.
+        out (npt.NDArray[np.float32] | npt.NDArray[np.float64]): Output array
+            of shape (len(t), n+1) and dtype matching t. The function writes
+            the evaluated basis functions to this array. Must have the correct
+            shape and dtype (no validation performed inside this numba-compiled function).
     """
     num_pts = t.shape[0]
-    B: npt.NDArray[np.float32 | np.float64] = np.zeros((num_pts, n + 1), dtype=t.dtype)
 
     # p_0(x) = 1
-    B[:, 0] = 1.0
+    for j in range(num_pts):
+        out[j, 0] = 1.0
 
     if n == 0:
-        return B
+        return
 
     # p_1(x) = sqrt(3)(2x-1)
     sqrt3 = np.sqrt(3.0)
 
-    # 2x - 1
-    two_x_minus_1 = 2.0 * t - 1.0
-    B[:, 1] = sqrt3 * two_x_minus_1
+    # Compute 2x - 1 for all points and p_1
+    for j in range(num_pts):
+        two_x_minus_1 = 2.0 * t[j] - 1.0
+        out[j, 1] = sqrt3 * two_x_minus_1
 
     for i in range(2, n + 1):
         # Coefficients
@@ -459,25 +524,32 @@ def _tabulate_Legendre_basis_1D_core(
         a_i = (sqrt_2i_minus_1 * sqrt_2i_plus_1) / i_float
         b_i = ((i_float - 1.0) / i_float) * (sqrt_2i_plus_1 / sqrt_2i_minus_3)
 
-        B[:, i] = a_i * two_x_minus_1 * B[:, i - 1] - b_i * B[:, i - 2]
-
-    return B
+        for j in range(num_pts):
+            two_x_minus_1 = 2.0 * t[j] - 1.0
+            out[j, i] = a_i * two_x_minus_1 * out[j, i - 1] - b_i * out[j, i - 2]
 
 
 def _tabulate_Legendre_basis_1D_impl(
-    n: int, t: npt.ArrayLike
+    n: int,
+    t: npt.ArrayLike,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the normalized Shifted Legendre basis polynomials of the given degree.
 
     Args:
         n (int): Degree of the Legendre polynomials. Must be non-negative.
         t (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype if provided. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Evaluated basis functions.
+        If `out` was provided, returns the same array.
 
     Raises:
-        ValueError: If degree is negative.
+        ValueError: If degree is negative, or if `out` is provided and has incorrect
+            shape or dtype.
     """
     if n < 0:
         raise ValueError("degree must be non-negative")
@@ -491,12 +563,29 @@ def _tabulate_Legendre_basis_1D_impl(
         input_shape = ()
 
     t = _normalize_points_1D(t)
+    num_pts = t.shape[0]
+    n_basis = n + 1
 
-    # Narrow union dtype for mypy by branching on dtype and casting accordingly.
-    if t.dtype == np.float32:
-        B = _tabulate_Legendre_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float32], t))
+    # Determine expected shape for normalized output (before reshaping)
+    expected_normalized_shape = (num_pts, n_basis)
+
+    # Allocate or validate output array
+    if out is None:
+        B = np.empty(expected_normalized_shape, dtype=t.dtype)
     else:
-        B = _tabulate_Legendre_basis_1D_core(np.int32(n), cast(npt.NDArray[np.float64], t))
+        # Validate that out has correct shape and dtype
+        _validate_out_array_1D(out, expected_normalized_shape, cast(npt.DTypeLike, t.dtype))
+        B = out
+
+    # Call core function to compute values
+    if t.dtype == np.float32:
+        _tabulate_Legendre_basis_1D_core(
+            np.int32(n), cast(npt.NDArray[np.float32], t), cast(npt.NDArray[np.float32], B)
+        )
+    else:
+        _tabulate_Legendre_basis_1D_core(
+            np.int32(n), cast(npt.NDArray[np.float64], t), cast(npt.NDArray[np.float64], B)
+        )
 
     return _normalize_basis_output_1D(B, input_shape)
 

@@ -42,7 +42,9 @@ class LagrangeVariant(Enum):
 
 
 def tabulate_Bernstein_basis_1D(
-    degree: int, pts: npt.ArrayLike
+    degree: int,
+    pts: npt.ArrayLike,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the Bernstein basis polynomials of the given degree at the given points.
 
@@ -51,13 +53,19 @@ def tabulate_Bernstein_basis_1D(
         pts (npt.ArrayLike): Evaluation points. Can be a scalar, list, or
             numpy array. Types different from float32 or float64 are
             automatically converted to float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype if provided. This follows NumPy's
+            style for output arrays. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape as
         the input points and the last dimension equal to (degree + 1).
+        If `out` was provided, returns the same array.
 
     Raises:
-        ValueError: If degree is negative.
+        ValueError: If degree is negative, or if `out` is provided and has incorrect
+            shape or dtype.
 
     Example:
         >>> tabulate_Bernstein_basis_1D(2, [0.0, 0.5, 0.75, 1.0])
@@ -66,11 +74,13 @@ def tabulate_Bernstein_basis_1D(
                [0.0625, 0.375 , 0.5625],
                [0.    , 0.    , 1.    ]])
     """
-    return _tabulate_Bernstein_basis_1D_impl(degree, pts)
+    return _tabulate_Bernstein_basis_1D_impl(degree, pts, out=out)
 
 
 def tabulate_cardinal_Bspline_basis_1D(
-    degree: int, pts: npt.ArrayLike
+    degree: int,
+    pts: npt.ArrayLike,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate the cardinal B-spline basis polynomials of given degree at given points.
 
@@ -94,13 +104,19 @@ def tabulate_cardinal_Bspline_basis_1D(
         degree (int): Degree of the B-spline basis. Must be non-negative.
         pts (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
             Types different from float32 or float64 are automatically converted to float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype if provided. This follows NumPy's
+            style for output arrays. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape
         as the input points and the last dimension equal to (degree + 1).
+        If `out` was provided, returns the same array.
 
     Raises:
-        ValueError: If provided degree is negative.
+        ValueError: If provided degree is negative, or if `out` is provided and has incorrect
+            shape or dtype.
 
     Example:
         >>> tabulate_cardinal_Bspline_basis_1D(2, [0.0, 0.5, 1.0])
@@ -110,11 +126,14 @@ def tabulate_cardinal_Bspline_basis_1D(
                [0.     , 0.5    , 0.5    ]])
 
     """
-    return _tabulate_cardinal_Bspline_basis_1D_impl(degree, pts)
+    return _tabulate_cardinal_Bspline_basis_1D_impl(degree, pts, out=out)
 
 
 def tabulate_Lagrange_basis_1D(
-    degree: int, variant: LagrangeVariant, pts: npt.ArrayLike
+    degree: int,
+    variant: LagrangeVariant,
+    pts: npt.ArrayLike,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate Lagrange basis polynomials at points using the specified variant.
 
@@ -132,19 +151,27 @@ def tabulate_Lagrange_basis_1D(
         variant (LagrangeVariant): Variant of the Lagrange basis.
         pts (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
             Types different from float32 or float64 are automatically converted to float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype if provided. This follows NumPy's
+            style for output arrays. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape
         as the input points and the last dimension equal to (degree + 1).
+        If `out` was provided, returns the same array.
 
     Raises:
-        ValueError: If provided degree is negative.
+        ValueError: If provided degree is negative, or if `out` is provided and has incorrect
+            shape or dtype.
     """
-    return _tabulate_Lagrange_basis_1D_impl(degree, variant, pts)
+    return _tabulate_Lagrange_basis_1D_impl(degree, variant, pts, out=out)
 
 
 def tabulate_Legendre_basis_1D(
-    degree: int, pts: npt.ArrayLike
+    degree: int,
+    pts: npt.ArrayLike,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     r"""Evaluate the normalized Shifted Legendre basis polynomials at the given points.
 
@@ -157,15 +184,21 @@ def tabulate_Legendre_basis_1D(
         degree (int): Degree of the Legendre basis. Must be non-negative.
         pts (npt.ArrayLike): Evaluation points. Can be a scalar, list, or numpy array.
             Types different from float32 or float64 are automatically converted to float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype if provided. This follows NumPy's
+            style for output arrays. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Evaluated basis functions, with the same shape
         as the input points and the last dimension equal to (degree + 1).
+        If `out` was provided, returns the same array.
 
     Raises:
-        ValueError: If provided degree is negative.
+        ValueError: If provided degree is negative, or if `out` is provided and has incorrect
+            shape or dtype.
     """
-    return _tabulate_Legendre_basis_1D_impl(degree, pts)
+    return _tabulate_Legendre_basis_1D_impl(degree, pts, out=out)
 
 
 def tabulate_Bernstein_basis(
