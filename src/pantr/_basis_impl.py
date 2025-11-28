@@ -11,6 +11,7 @@ import numpy.typing as npt
 from scipy.interpolate import BarycentricInterpolator
 
 from ._basis_utils import (
+    _compute_final_output_shape_1D,
     _normalize_basis_output_1D,
     _normalize_points_1D,
     _validate_out_array_1D,
@@ -156,28 +157,39 @@ def _tabulate_Bernstein_basis_1D_impl(
     num_pts = t.shape[0]
     n_basis = n + 1
 
-    # Determine expected shape for normalized output (before reshaping)
+    # Determine expected shapes
     expected_normalized_shape = (num_pts, n_basis)
+    expected_final_shape = _compute_final_output_shape_1D(input_shape, n_basis)
 
     # Allocate or validate output array
     if out is None:
-        B = np.empty(expected_normalized_shape, dtype=t.dtype)
+        B_normalized = np.empty(expected_normalized_shape, dtype=t.dtype)
+        # Call core function to compute values
+        if t.dtype == np.float32:
+            t_float32 = cast(npt.NDArray[np.float32], t)
+            B_float32 = cast(npt.NDArray[np.float32], B_normalized)
+            _tabulate_Bernstein_basis_1D_core(np.int32(n), t_float32, B_float32)
+        else:
+            t_float64 = cast(npt.NDArray[np.float64], t)
+            B_float64 = cast(npt.NDArray[np.float64], B_normalized)
+            _tabulate_Bernstein_basis_1D_core(np.int32(n), t_float64, B_float64)
+        return _normalize_basis_output_1D(B_normalized, input_shape)
     else:
-        # Validate that out has correct shape and dtype
-        _validate_out_array_1D(out, expected_normalized_shape, cast(npt.DTypeLike, t.dtype))
-        B = out
-
-    # Call core function to compute values
-    if t.dtype == np.float32:
-        _tabulate_Bernstein_basis_1D_core(
-            np.int32(n), cast(npt.NDArray[np.float32], t), cast(npt.NDArray[np.float32], B)
-        )
-    else:
-        _tabulate_Bernstein_basis_1D_core(
-            np.int32(n), cast(npt.NDArray[np.float64], t), cast(npt.NDArray[np.float64], B)
-        )
-
-    return _normalize_basis_output_1D(B, input_shape)
+        # Validate that out has correct final output shape and dtype
+        _validate_out_array_1D(out, expected_final_shape, cast(npt.DTypeLike, t.dtype))
+        # Reshape out to normalized shape for computation
+        B_normalized = out.reshape(expected_normalized_shape)
+        # Call core function to compute values (modifies out through the view)
+        if t.dtype == np.float32:
+            t_float32 = cast(npt.NDArray[np.float32], t)
+            B_float32 = cast(npt.NDArray[np.float32], B_normalized)
+            _tabulate_Bernstein_basis_1D_core(np.int32(n), t_float32, B_float32)
+        else:
+            t_float64 = cast(npt.NDArray[np.float64], t)
+            B_float64 = cast(npt.NDArray[np.float64], B_normalized)
+            _tabulate_Bernstein_basis_1D_core(np.int32(n), t_float64, B_float64)
+        # Return original out (already has the correct final shape)
+        return out
 
 
 @nb_jit(
@@ -296,28 +308,39 @@ def _tabulate_cardinal_Bspline_basis_1D_impl(
     num_pts = t.shape[0]
     n_basis = n + 1
 
-    # Determine expected shape for normalized output (before reshaping)
+    # Determine expected shapes
     expected_normalized_shape = (num_pts, n_basis)
+    expected_final_shape = _compute_final_output_shape_1D(input_shape, n_basis)
 
     # Allocate or validate output array
     if out is None:
-        B = np.empty(expected_normalized_shape, dtype=t.dtype)
+        B_normalized = np.empty(expected_normalized_shape, dtype=t.dtype)
+        # Call core function to compute values
+        if t.dtype == np.float32:
+            t_float32 = cast(npt.NDArray[np.float32], t)
+            B_float32 = cast(npt.NDArray[np.float32], B_normalized)
+            _tabulate_cardinal_Bspline_basis_1D_core(np.int32(n), t_float32, B_float32)
+        else:
+            t_float64 = cast(npt.NDArray[np.float64], t)
+            B_float64 = cast(npt.NDArray[np.float64], B_normalized)
+            _tabulate_cardinal_Bspline_basis_1D_core(np.int32(n), t_float64, B_float64)
+        return _normalize_basis_output_1D(B_normalized, input_shape)
     else:
-        # Validate that out has correct shape and dtype
-        _validate_out_array_1D(out, expected_normalized_shape, cast(npt.DTypeLike, t.dtype))
-        B = out
-
-    # Call core function to compute values
-    if t.dtype == np.float32:
-        _tabulate_cardinal_Bspline_basis_1D_core(
-            np.int32(n), cast(npt.NDArray[np.float32], t), cast(npt.NDArray[np.float32], B)
-        )
-    else:
-        _tabulate_cardinal_Bspline_basis_1D_core(
-            np.int32(n), cast(npt.NDArray[np.float64], t), cast(npt.NDArray[np.float64], B)
-        )
-
-    return _normalize_basis_output_1D(B, input_shape)
+        # Validate that out has correct final output shape and dtype
+        _validate_out_array_1D(out, expected_final_shape, cast(npt.DTypeLike, t.dtype))
+        # Reshape out to normalized shape for computation
+        B_normalized = out.reshape(expected_normalized_shape)
+        # Call core function to compute values (modifies out through the view)
+        if t.dtype == np.float32:
+            t_float32 = cast(npt.NDArray[np.float32], t)
+            B_float32 = cast(npt.NDArray[np.float32], B_normalized)
+            _tabulate_cardinal_Bspline_basis_1D_core(np.int32(n), t_float32, B_float32)
+        else:
+            t_float64 = cast(npt.NDArray[np.float64], t)
+            B_float64 = cast(npt.NDArray[np.float64], B_normalized)
+            _tabulate_cardinal_Bspline_basis_1D_core(np.int32(n), t_float64, B_float64)
+        # Return original out (already has the correct final shape)
+        return out
 
 
 def _get_lagrange_points(
@@ -351,6 +374,69 @@ def _get_lagrange_points(
         return get_chebyshev_gauss_1st_kind_quadrature_1D(n_pts, dtype)[0]
     else:  # "chebyshev_2nd"
         return get_chebyshev_gauss_2nd_kind_quadrature_1D(n_pts, dtype)[0]
+
+
+def _compute_lagrange_basis_into_array(
+    n: int,
+    variant: LagrangeVariant,
+    t: npt.NDArray[np.float32 | np.float64],
+    B_normalized: npt.NDArray[np.float32 | np.float64],
+) -> None:
+    """Compute Lagrange basis values into the provided normalized array.
+
+    Args:
+        n (int): Degree of the Lagrange basis. Must be non-negative.
+        variant (LagrangeVariant): Variant of the Lagrange basis.
+        t (npt.NDArray[np.float32 | np.float64]): Normalized 1D array
+            of evaluation points.
+        B_normalized (npt.NDArray[np.float32 | np.float64]): Output array
+            of shape (len(t), n+1) where results will be written. Must have the correct
+            shape and dtype matching t.
+    """
+    n_pts = n + 1
+
+    # Degree-zero: basis is constant 1 for all evaluation points and variants.
+    if n == 0:
+        B_normalized[:, 0] = 1.0
+        return
+
+    nodes = _get_lagrange_points(variant, n + 1, t.dtype)
+
+    # Ensure nodes are strictly increasing for numerical robustness and consistency
+    perm = np.argsort(nodes)
+    nodes_sorted = nodes[perm]
+    # Precompute inverse permutation: inv_perm[idx_in_sorted] = original_index
+    inv_perm = np.empty_like(perm)
+    inv_perm[perm] = np.arange(n_pts, dtype=perm.dtype)
+
+    for j in range(n_pts):
+        # Set 1 at the position corresponding to node j in the sorted order
+        y_sorted = np.zeros(n_pts, dtype=t.dtype)
+        y_sorted[inv_perm[j]] = 1.0
+
+        interpolator = BarycentricInterpolator(nodes_sorted, y_sorted)
+
+        # SciPy may upcast internally; ensure we preserve input dtype.
+        B_normalized[:, j] = np.asarray(interpolator(t), dtype=t.dtype)
+
+    # Snap to exact Kronecker-delta at interpolation nodes to avoid tiny roundoff
+    # off-diagonals (notably with float32 and Chebyshev nodes).
+    if B_normalized.dtype == np.float32:
+        eps = np.finfo(np.float32).eps * 16.0
+    else:
+        eps = np.finfo(np.float64).eps * 16.0
+    diffs = np.abs(t[:, None] - nodes_sorted[None, :])
+    matches = diffs <= eps
+    if np.any(matches):
+        row_has_match = np.any(matches, axis=1)
+        if np.any(row_has_match):
+            matched_k = np.argmax(matches, axis=1)
+            rows = np.nonzero(row_has_match)[0]
+            ks = matched_k[rows]
+            cols = perm[ks]
+            # Zero full matched rows then set the diagonal 1
+            B_normalized[rows, :] = 0.0
+            B_normalized[rows, cols] = 1.0
 
 
 def _tabulate_Lagrange_basis_1D_impl(
@@ -402,61 +488,23 @@ def _tabulate_Lagrange_basis_1D_impl(
     t = _normalize_points_1D(t)
 
     num_eval = t.shape[0]
-    n_pts = n + 1
-    expected_normalized_shape = (num_eval, n_pts)
+    n_basis = n + 1
+    expected_normalized_shape = (num_eval, n_basis)
+    expected_final_shape = _compute_final_output_shape_1D(input_shape, n_basis)
 
     # Allocate or validate output array
     if out is None:
-        B = np.empty(expected_normalized_shape, dtype=t.dtype)
+        B_normalized = np.empty(expected_normalized_shape, dtype=t.dtype)
+        _compute_lagrange_basis_into_array(n, variant, t, B_normalized)
+        return _normalize_basis_output_1D(B_normalized, input_shape)
     else:
-        # Validate that out has correct shape and dtype
-        _validate_out_array_1D(out, expected_normalized_shape, cast(npt.DTypeLike, t.dtype))
-        B = out
-
-    # Degree-zero: basis is constant 1 for all evaluation points and variants.
-    if n == 0:
-        B[:, 0] = 1.0
-        return _normalize_basis_output_1D(B, input_shape)
-
-    nodes = _get_lagrange_points(variant, n + 1, t.dtype)
-
-    # Ensure nodes are strictly increasing for numerical robustness and consistency
-    perm = np.argsort(nodes)
-    nodes_sorted = nodes[perm]
-    # Precompute inverse permutation: inv_perm[idx_in_sorted] = original_index
-    inv_perm = np.empty_like(perm)
-    inv_perm[perm] = np.arange(n_pts, dtype=perm.dtype)
-
-    for j in range(n_pts):
-        # Set 1 at the position corresponding to node j in the sorted order
-        y_sorted = np.zeros(n_pts, dtype=t.dtype)
-        y_sorted[inv_perm[j]] = 1.0
-
-        interpolator = BarycentricInterpolator(nodes_sorted, y_sorted)
-
-        # SciPy may upcast internally; ensure we preserve input dtype.
-        B[:, j] = np.asarray(interpolator(t), dtype=t.dtype)
-
-    # Snap to exact Kronecker-delta at interpolation nodes to avoid tiny roundoff
-    # off-diagonals (notably with float32 and Chebyshev nodes).
-    if B.dtype == np.float32:
-        eps = np.finfo(np.float32).eps * 16.0
-    else:
-        eps = np.finfo(np.float64).eps * 16.0
-    diffs = np.abs(t[:, None] - nodes_sorted[None, :])
-    matches = diffs <= eps
-    if np.any(matches):
-        row_has_match = np.any(matches, axis=1)
-        if np.any(row_has_match):
-            matched_k = np.argmax(matches, axis=1)
-            rows = np.nonzero(row_has_match)[0]
-            ks = matched_k[rows]
-            cols = perm[ks]
-            # Zero full matched rows then set the diagonal 1
-            B[rows, :] = 0.0
-            B[rows, cols] = 1.0
-
-    return _normalize_basis_output_1D(B, input_shape)
+        # Validate that out has correct final output shape and dtype
+        _validate_out_array_1D(out, expected_final_shape, cast(npt.DTypeLike, t.dtype))
+        # Reshape out to normalized shape for computation
+        B_normalized = out.reshape(expected_normalized_shape)
+        _compute_lagrange_basis_into_array(n, variant, t, B_normalized)
+        # Return original out (already has the correct final shape)
+        return out
 
 
 @nb_jit(
@@ -566,28 +614,39 @@ def _tabulate_Legendre_basis_1D_impl(
     num_pts = t.shape[0]
     n_basis = n + 1
 
-    # Determine expected shape for normalized output (before reshaping)
+    # Determine expected shapes
     expected_normalized_shape = (num_pts, n_basis)
+    expected_final_shape = _compute_final_output_shape_1D(input_shape, n_basis)
 
     # Allocate or validate output array
     if out is None:
-        B = np.empty(expected_normalized_shape, dtype=t.dtype)
+        B_normalized = np.empty(expected_normalized_shape, dtype=t.dtype)
+        # Call core function to compute values
+        if t.dtype == np.float32:
+            t_float32 = cast(npt.NDArray[np.float32], t)
+            B_float32 = cast(npt.NDArray[np.float32], B_normalized)
+            _tabulate_Legendre_basis_1D_core(np.int32(n), t_float32, B_float32)
+        else:
+            t_float64 = cast(npt.NDArray[np.float64], t)
+            B_float64 = cast(npt.NDArray[np.float64], B_normalized)
+            _tabulate_Legendre_basis_1D_core(np.int32(n), t_float64, B_float64)
+        return _normalize_basis_output_1D(B_normalized, input_shape)
     else:
-        # Validate that out has correct shape and dtype
-        _validate_out_array_1D(out, expected_normalized_shape, cast(npt.DTypeLike, t.dtype))
-        B = out
-
-    # Call core function to compute values
-    if t.dtype == np.float32:
-        _tabulate_Legendre_basis_1D_core(
-            np.int32(n), cast(npt.NDArray[np.float32], t), cast(npt.NDArray[np.float32], B)
-        )
-    else:
-        _tabulate_Legendre_basis_1D_core(
-            np.int32(n), cast(npt.NDArray[np.float64], t), cast(npt.NDArray[np.float64], B)
-        )
-
-    return _normalize_basis_output_1D(B, input_shape)
+        # Validate that out has correct final output shape and dtype
+        _validate_out_array_1D(out, expected_final_shape, cast(npt.DTypeLike, t.dtype))
+        # Reshape out to normalized shape for computation
+        B_normalized = out.reshape(expected_normalized_shape)
+        # Call core function to compute values (modifies out through the view)
+        if t.dtype == np.float32:
+            t_float32 = cast(npt.NDArray[np.float32], t)
+            B_float32 = cast(npt.NDArray[np.float32], B_normalized)
+            _tabulate_Legendre_basis_1D_core(np.int32(n), t_float32, B_float32)
+        else:
+            t_float64 = cast(npt.NDArray[np.float64], t)
+            B_float64 = cast(npt.NDArray[np.float64], B_normalized)
+            _tabulate_Legendre_basis_1D_core(np.int32(n), t_float64, B_float64)
+        # Return original out (already has the correct final shape)
+        return out
 
 
 def _compute_basis_combinator_matrix_for_points_lattice(

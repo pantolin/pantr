@@ -726,3 +726,38 @@ def test_out_parameter_legendre() -> None:
     out_readonly.setflags(write=False)
     with pytest.raises(ValueError, match="Output array is not writeable"):
         tabulate_Legendre_basis_1D(degree, pts, out=out_readonly)
+
+
+def test_out_parameter_reuse_result() -> None:
+    """Test that a result from one call can be reused as out in another call."""
+    degree = 2
+    pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+
+    # First call without out
+    result1 = tabulate_Bernstein_basis_1D(degree, pts)
+    assert result1.shape == (3, 3)
+
+    # Reuse result1 as out for second call with same input
+    result2 = tabulate_Bernstein_basis_1D(degree, pts, out=result1)
+    # Should work without error and return the same array
+    nptest.assert_allclose(result1, result2)
+
+    # Test with scalar input
+    result_scalar = tabulate_Bernstein_basis_1D(degree, 0.5)
+    assert result_scalar.shape == (3,)
+
+    # Reuse scalar result as out
+    result_scalar2 = tabulate_Bernstein_basis_1D(degree, 0.5, out=result_scalar)
+    nptest.assert_allclose(result_scalar, result_scalar2)
+
+    # Test with Lagrange
+    result_lagrange = tabulate_Lagrange_basis_1D(degree, LagrangeVariant.EQUISPACES, pts)
+    result_lagrange2 = tabulate_Lagrange_basis_1D(
+        degree, LagrangeVariant.EQUISPACES, pts, out=result_lagrange
+    )
+    nptest.assert_allclose(result_lagrange, result_lagrange2)
+
+    # Test with Legendre
+    result_legendre = tabulate_Legendre_basis_1D(degree, pts)
+    result_legendre2 = tabulate_Legendre_basis_1D(degree, pts, out=result_legendre)
+    nptest.assert_allclose(result_legendre, result_legendre2)

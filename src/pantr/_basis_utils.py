@@ -33,6 +33,24 @@ def _normalize_points_1D(pts: npt.ArrayLike) -> npt.NDArray[np.float32 | np.floa
     return pts
 
 
+def _compute_final_output_shape_1D(input_shape: tuple[int, ...], n_basis: int) -> tuple[int, ...]:
+    """Compute the final output shape for 1D basis functions.
+
+    Args:
+        input_shape (tuple[int, ...]): The shape of the input points (before normalization).
+        n_basis (int): The number of basis functions (degree + 1).
+
+    Returns:
+        tuple[int, ...]: The final output shape.
+    """
+    if len(input_shape) == 0:
+        # Scalar input: output shape is (n_basis,)
+        return (n_basis,)
+    else:
+        # Non-scalar input: output shape is (*input_shape, n_basis)
+        return (*input_shape, n_basis)
+
+
 def _normalize_basis_output_1D(
     arr: npt.NDArray[np.float32 | np.float64], input_shape: tuple[int, ...]
 ) -> npt.NDArray[np.float32 | np.float64]:
