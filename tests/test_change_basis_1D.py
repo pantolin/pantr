@@ -10,7 +10,7 @@ from pantr.basis import (
     tabulate_cardinal_Bspline_basis_1D,
     tabulate_Lagrange_basis_1D,
 )
-from pantr.change_basis_1D import (
+from pantr.change_basis import (
     _compute_change_basis,
     compute_Bernstein_to_cardinal_change_basis,
     compute_Bernstein_to_Lagrange_change_basis,

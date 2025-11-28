@@ -17,7 +17,7 @@ from numba.core import types as nb_types
 from ._basis_impl import _tabulate_Bernstein_basis_1D_impl
 from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
 from .basis import LagrangeVariant
-from .change_basis_1D import (
+from .change_basis import (
     compute_cardinal_to_Bernstein_change_basis,
     compute_Lagrange_to_Bernstein_change_basis,
 )

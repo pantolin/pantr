@@ -30,7 +30,7 @@ from .bspline_space import (
     create_uniform_open_knot_vector,
     create_uniform_periodic_knot_vector,
 )
-from .change_basis_1D import (
+from .change_basis import (
     compute_Bernstein_to_cardinal_change_basis,
     compute_Bernstein_to_Lagrange_change_basis,
     compute_cardinal_to_Bernstein_change_basis,
