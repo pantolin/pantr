@@ -1267,6 +1267,18 @@ class TestOutParameter:
         with pytest.raises(ValueError, match="Output array has dtype"):
             spline.get_cardinal_intervals(out=out)  # type: ignore[arg-type]
 
+    def test_get_cardinal_intervals_out_not_writeable(self) -> None:
+        """Test that out parameter with non-writeable array raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros(4, dtype=np.bool_)
+        out.setflags(write=False)
+
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            spline.get_cardinal_intervals(out=out)
+
     def test_tabulate_basis_out_parameter(self) -> None:
         """Test that out parameter works for tabulate_basis."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
@@ -1282,6 +1294,38 @@ class TestOutParameter:
         np.testing.assert_array_equal(idx1, idx2)
         np.testing.assert_allclose(out, basis1)
         assert basis2 is out
+
+    def test_tabulate_basis_bezier_like_without_out_first_basis(self) -> None:
+        """Test tabulate_basis with Bézier-like knots without out_first_basis parameter."""
+        # Bézier-like knots: only two unique knots
+        knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+
+        # Call without out_first_basis to hit line 173
+        basis, first_indices = spline.tabulate_basis(pts)
+
+        assert basis.shape == (3, 3)
+        assert first_indices.shape == (3,)
+        # For Bézier-like knots, first_indices should all be 0
+        np.testing.assert_array_equal(first_indices, np.array([0, 0, 0]))
+
+    def test_tabulate_Bspline_basis_Bernstein_like_1D_without_out_first_basis(self) -> None:
+        """Test _tabulate_Bspline_basis_Bernstein_like_1D without out_first_basis."""
+        # Bézier-like knots: only two unique knots
+        knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+
+        # Call directly without out_first_basis to hit line 173
+        basis, first_indices = _tabulate_Bspline_basis_Bernstein_like_1D(spline, pts)
+
+        assert basis.shape == (3, 3)
+        assert first_indices.shape == (3,)
+        # For Bézier-like knots, first_indices should all be 0
+        np.testing.assert_array_equal(first_indices, np.array([0, 0, 0]))
 
     def test_tabulate_basis_out_wrong_shape(self) -> None:
         """Test that out parameter with wrong shape raises ValueError."""
@@ -1343,6 +1387,18 @@ class TestOutParameter:
         with pytest.raises(ValueError, match="Output array has dtype"):
             spline.tabulate_Bezier_extraction_operators(out=out)
 
+    def test_tabulate_Bezier_extraction_out_not_writeable(self) -> None:
+        """Test that out parameter with non-writeable array raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 3, 3), dtype=np.float64)
+        out.setflags(write=False)
+
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            spline.tabulate_Bezier_extraction_operators(out=out)
+
     def test_tabulate_Lagrange_extraction_out_parameter(self) -> None:
         """Test that out parameter works for tabulate_Lagrange_extraction_operators."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
@@ -1368,6 +1424,29 @@ class TestOutParameter:
         with pytest.raises(ValueError, match="Output array has shape"):
             spline.tabulate_Lagrange_extraction_operators(out=out)
 
+    def test_tabulate_Lagrange_extraction_out_wrong_dtype(self) -> None:
+        """Test that out parameter with wrong dtype raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 3, 3), dtype=np.float32)  # Wrong dtype, should be float64
+
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            spline.tabulate_Lagrange_extraction_operators(out=out)
+
+    def test_tabulate_Lagrange_extraction_out_not_writeable(self) -> None:
+        """Test that out parameter with non-writeable array raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 3, 3), dtype=np.float64)
+        out.setflags(write=False)
+
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            spline.tabulate_Lagrange_extraction_operators(out=out)
+
     def test_tabulate_cardinal_extraction_out_parameter(self) -> None:
         """Test that out parameter works for tabulate_cardinal_extraction_operators."""
         knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
@@ -1391,4 +1470,27 @@ class TestOutParameter:
         out = np.zeros((2, 2, 2), dtype=np.float64)  # Wrong shape, should be (2, 3, 3)
 
         with pytest.raises(ValueError, match="Output array has shape"):
+            spline.tabulate_cardinal_extraction_operators(out=out)
+
+    def test_tabulate_cardinal_extraction_out_wrong_dtype(self) -> None:
+        """Test that out parameter with wrong dtype raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 3, 3), dtype=np.float32)  # Wrong dtype, should be float64
+
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            spline.tabulate_cardinal_extraction_operators(out=out)
+
+    def test_tabulate_cardinal_extraction_out_not_writeable(self) -> None:
+        """Test that out parameter with non-writeable array raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 3, 3), dtype=np.float64)
+        out.setflags(write=False)
+
+        with pytest.raises(ValueError, match="Output array is not writeable"):
             spline.tabulate_cardinal_extraction_operators(out=out)

@@ -392,6 +392,16 @@ class TestEvalBasis:
         result = _call_basis_function(basis_type, degrees, lattice)
         assert result.shape == (3, 3)
 
+    def test_points_lattice_3d(self, basis_type: BasisType) -> None:
+        """Test 3D PointsLattice input (to cover loop in _compute_basis_combinator_matrix_for_points_lattice)."""  # noqa: E501
+        degrees = [1, 1, 1]
+        pts_x = np.linspace(0.0, 1.0, 2, dtype=np.float64)
+        pts_y = np.linspace(0.0, 1.0, 2, dtype=np.float64)
+        pts_z = np.linspace(0.0, 1.0, 2, dtype=np.float64)
+        lattice = PointsLattice([pts_x, pts_y, pts_z])
+        result = _call_basis_function(basis_type, degrees, lattice)
+        assert result.shape == (8, 8)
+
     def test_funcs_order_c(self, basis_type: BasisType) -> None:
         """Test C-order (default) for basis functions."""
         degrees = [1, 1]

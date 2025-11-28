@@ -51,27 +51,6 @@ def _compute_final_output_shape_1D(input_shape: tuple[int, ...], n_basis: int) -
         return (*input_shape, n_basis)
 
 
-def _normalize_basis_output_1D(
-    arr: npt.NDArray[np.float32 | np.float64], input_shape: tuple[int, ...]
-) -> npt.NDArray[np.float32 | np.float64]:
-    """Normalize the output of a 1D basis function evaluation to the input shape.
-
-    The output array will be reshaped to have the same shape as the input points,
-    with the last dimension being the number of basis functions.
-
-    Args:
-        arr (npt.NDArray[np.float32 | np.float64]): The output array.
-        input_shape (tuple[int, ...]): The shape of the input points (before normalization).
-
-    Returns:
-        npt.NDArray[np.float32 | np.float64]: The normalized output array.
-    """
-    if len(input_shape) == 0:
-        return arr.squeeze()
-    else:
-        return arr.reshape(*input_shape, -1)
-
-
 def _validate_out_array_1D(
     out: npt.NDArray[np.float32 | np.float64],
     expected_shape: tuple[int, ...],
