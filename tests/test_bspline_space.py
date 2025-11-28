@@ -3,8 +3,7 @@
 import numpy as np
 import pytest
 
-from pantr.bspline_space import BsplineSpace
-from pantr.bspline_space_1D import BsplineSpace1D
+from pantr.bspline_space import BsplineSpace, BsplineSpace1D
 from pantr.quad import PointsLattice
 
 
@@ -785,3 +784,196 @@ class TestBsplineSpaceEvaluation:
 
         np.testing.assert_allclose(basis, expected_basis, rtol=1e-10, atol=1e-12)
         np.testing.assert_array_equal(first_indices, expected_first_indices)
+
+
+class TestOutParameter:
+    """Test out parameter for BsplineSpace methods."""
+
+    def test_tabulate_basis_out_parameter_1D(self) -> None:
+        """Test that out parameter works for tabulate_basis in 1D."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        space_1d = BsplineSpace1D(knots, degree)
+        space = BsplineSpace([space_1d])
+        pts = np.array([[0.0], [0.5], [1.0]], dtype=np.float64)
+
+        basis1, idx1 = space.tabulate_basis(pts)
+        out = np.zeros_like(basis1)
+        basis2, idx2 = space.tabulate_basis(pts, out_basis=out)
+
+        np.testing.assert_allclose(basis1, basis2)
+        np.testing.assert_array_equal(idx1, idx2)
+        np.testing.assert_allclose(out, basis1)
+        assert basis2 is out
+
+    def test_tabulate_basis_out_parameter_2D(self) -> None:
+        """Test that out parameter works for tabulate_basis in 2D."""
+        knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        degree = 2
+        space_1d = BsplineSpace1D(knots, degree)
+        space = BsplineSpace([space_1d, space_1d])
+        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
+
+        basis1, idx1 = space.tabulate_basis(pts)
+        out = np.zeros_like(basis1)
+        basis2, idx2 = space.tabulate_basis(pts, out_basis=out)
+
+        np.testing.assert_allclose(basis1, basis2)
+        np.testing.assert_array_equal(idx1, idx2)
+        np.testing.assert_allclose(out, basis1)
+        assert basis2 is out
+
+    def test_tabulate_basis_out_wrong_shape(self) -> None:
+        """Test that out parameter with wrong shape raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        space_1d = BsplineSpace1D(knots, degree)
+        space = BsplineSpace([space_1d])
+        pts = np.array([[0.0], [0.5], [1.0]], dtype=np.float64)
+
+        out = np.zeros((3, 2), dtype=np.float64)  # Wrong shape
+
+        with pytest.raises(ValueError, match="Output array has shape"):
+            space.tabulate_basis(pts, out_basis=out)
+
+    def test_tabulate_basis_out_wrong_dtype(self) -> None:
+        """Test that out parameter with wrong dtype raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        space_1d = BsplineSpace1D(knots, degree)
+        space = BsplineSpace([space_1d])
+        pts = np.array([[0.0], [0.5], [1.0]], dtype=np.float64)
+
+        basis1, _ = space.tabulate_basis(pts)
+        out = np.zeros_like(basis1, dtype=np.float32)  # Wrong dtype
+
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            space.tabulate_basis(pts, out_basis=out)
+
+    def test_tabulate_basis_out_first_basis_parameter_1D(self) -> None:
+        """Test that out_first_basis parameter works for tabulate_basis in 1D."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        space_1d = BsplineSpace1D(knots, degree)
+        space = BsplineSpace([space_1d])
+        pts = np.array([[0.0], [0.5], [1.0]], dtype=np.float64)
+
+        basis1, idx1 = space.tabulate_basis(pts)
+        out_first = np.zeros_like(idx1)
+        basis2, idx2 = space.tabulate_basis(pts, out_first_basis=out_first)
+
+        np.testing.assert_allclose(basis1, basis2)
+        np.testing.assert_array_equal(idx1, idx2)
+        np.testing.assert_array_equal(out_first, idx1)
+        assert idx2 is out_first
+
+    def test_tabulate_basis_out_first_basis_parameter_2D(self) -> None:
+        """Test that out_first_basis parameter works for tabulate_basis in 2D."""
+        knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        degree = 2
+        space_1d = BsplineSpace1D(knots, degree)
+        space = BsplineSpace([space_1d, space_1d])
+        pts = np.array([[0.0, 0.0], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
+
+        basis1, idx1 = space.tabulate_basis(pts)
+        out_first = np.zeros_like(idx1)
+        basis2, idx2 = space.tabulate_basis(pts, out_first_basis=out_first)
+
+        np.testing.assert_allclose(basis1, basis2)
+        np.testing.assert_array_equal(idx1, idx2)
+        np.testing.assert_array_equal(out_first, idx1)
+        assert idx2 is out_first
+
+    def test_tabulate_basis_out_first_basis_wrong_shape(self) -> None:
+        """Test that out_first_basis parameter with wrong shape raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        space_1d = BsplineSpace1D(knots, degree)
+        space = BsplineSpace([space_1d])
+        pts = np.array([[0.0], [0.5], [1.0]], dtype=np.float64)
+
+        out_first = np.zeros((3, 2), dtype=np.int_)  # Wrong shape
+
+        with pytest.raises(ValueError, match="Output array has shape"):
+            space.tabulate_basis(pts, out_first_basis=out_first)
+
+    def test_tabulate_basis_out_first_basis_wrong_dtype(self) -> None:
+        """Test that out_first_basis parameter with wrong dtype raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        space_1d = BsplineSpace1D(knots, degree)
+        space = BsplineSpace([space_1d])
+        pts = np.array([[0.0], [0.5], [1.0]], dtype=np.float64)
+
+        out_first = np.zeros((3, 1), dtype=np.float64)  # Wrong dtype (should be int_)
+
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            space.tabulate_basis(pts, out_first_basis=out_first)  # type: ignore[arg-type]
+
+    def test_tabulate_basis_out_first_basis_not_writeable(self) -> None:
+        """Test that out_first_basis parameter with non-writeable array raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        space_1d = BsplineSpace1D(knots, degree)
+        space = BsplineSpace([space_1d])
+        pts = np.array([[0.0], [0.5], [1.0]], dtype=np.float64)
+
+        out_first = np.zeros((3, 1), dtype=np.int_)
+        out_first.setflags(write=False)
+
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            space.tabulate_basis(pts, out_first_basis=out_first)
+
+    def test_tabulate_basis_points_lattice_1D(self) -> None:
+        """Test tabulate_basis with 1D PointsLattice."""
+        knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        degree = 2
+        space_1d = BsplineSpace1D(knots, degree)
+        space = BsplineSpace([space_1d])
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+        lattice = PointsLattice([pts])
+
+        basis, first_indices = space.tabulate_basis(lattice)
+
+        assert basis.shape == (3, 3)
+        assert first_indices.shape == (3, 1)
+
+    def test_tabulate_basis_points_lattice_1D_with_out(self) -> None:
+        """Test tabulate_basis with 1D PointsLattice and out parameters."""
+        knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        degree = 2
+        space_1d = BsplineSpace1D(knots, degree)
+        space = BsplineSpace([space_1d])
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+        lattice = PointsLattice([pts])
+
+        basis1, idx1 = space.tabulate_basis(lattice)
+        out_basis = np.zeros_like(basis1)
+        out_first = np.zeros_like(idx1)
+        basis2, idx2 = space.tabulate_basis(lattice, out_basis=out_basis, out_first_basis=out_first)
+
+        np.testing.assert_allclose(basis1, basis2)
+        np.testing.assert_array_equal(idx1, idx2)
+        assert basis2 is out_basis
+        assert idx2 is out_first
+
+    def test_tabulate_basis_points_lattice_2D_with_out(self) -> None:
+        """Test tabulate_basis with 2D PointsLattice and out parameters."""
+        knots1 = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        knots2 = [0.0, 0.0, 1.0, 1.0]
+        space_1d_1 = BsplineSpace1D(knots1, 2)
+        space_1d_2 = BsplineSpace1D(knots2, 1)
+        space = BsplineSpace([space_1d_1, space_1d_2])
+        pts1 = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+        pts2 = np.array([0.0, 1.0], dtype=np.float64)
+        lattice = PointsLattice([pts1, pts2])
+
+        basis1, idx1 = space.tabulate_basis(lattice)
+        out_basis = np.zeros_like(basis1)
+        out_first = np.zeros_like(idx1)
+        basis2, idx2 = space.tabulate_basis(lattice, out_basis=out_basis, out_first_basis=out_first)
+
+        np.testing.assert_allclose(basis1, basis2)
+        np.testing.assert_array_equal(idx1, idx2)
+        assert basis2 is out_basis
+        assert idx2 is out_first

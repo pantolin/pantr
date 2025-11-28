@@ -288,7 +288,7 @@ def create_Lagrange_points_lattice(
         dtype (npt.DTypeLike): The dtype of the points. Defaults to float64.
     """
     # Lazy import to avoid circular dependency
-    from ._basis_impl import _get_lagrange_points  # noqa: PLC0415
+    from ._basis_lagrange import _get_lagrange_points  # noqa: PLC0415
 
     if any(n_pts < 1 for n_pts in n_pts_per_dir):
         raise ValueError("All number of points must be at least 1")

@@ -10,34 +10,79 @@ from pantr.basis import (
     tabulate_cardinal_Bspline_basis_1D,
     tabulate_Lagrange_basis_1D,
 )
-from pantr.change_basis_1D import (
-    _compute_change_basis,
-    compute_Bernstein_to_cardinal_change_basis,
-    compute_Bernstein_to_Lagrange_change_basis,
-    compute_cardinal_to_Bernstein_change_basis,
-    compute_Lagrange_to_Bernstein_change_basis,
+from pantr.change_basis import (
+    _compute_change_basis_1D,
+    compute_Bernstein_to_cardinal_change_basis_1D,
+    compute_Bernstein_to_Lagrange_change_basis_1D,
+    compute_cardinal_to_Bernstein_change_basis_1D,
+    compute_Lagrange_to_Bernstein_change_basis_1D,
 )
 
 
 class TestLagrangeToBernsteinBasisOperator:
-    """Test the compute_Lagrange_to_Bernstein_change_basis function."""
+    """Test the compute_Lagrange_to_Bernstein_change_basis_1D function."""
 
     def test_degree_zero_error(self) -> None:
         """Test that degree lower than 1 raises ValueError."""
         with pytest.raises(ValueError, match="Degree must at least 1"):
-            compute_Lagrange_to_Bernstein_change_basis(0)
+            compute_Lagrange_to_Bernstein_change_basis_1D(0)
 
     def test_negative_degree_error(self) -> None:
         """Test that negative degree raises ValueError."""
         with pytest.raises(ValueError, match="Degree must at least 1"):
-            compute_Lagrange_to_Bernstein_change_basis(-1)
+            compute_Lagrange_to_Bernstein_change_basis_1D(-1)
 
     def test_invalid_dtype_error(self) -> None:
         """Test that invalid dtype raises ValueError."""
         with pytest.raises(ValueError, match="dtype must be float32 or float64"):
-            compute_Lagrange_to_Bernstein_change_basis(2, dtype=np.int32)
+            compute_Lagrange_to_Bernstein_change_basis_1D(2, dtype=np.int32)
         with pytest.raises(ValueError, match="dtype must be float32 or float64"):
-            compute_Lagrange_to_Bernstein_change_basis(2, dtype=np.float16)
+            compute_Lagrange_to_Bernstein_change_basis_1D(2, dtype=np.float16)
+
+    def test_out_parameter(self) -> None:
+        """Test that out parameter works correctly."""
+        degree = 2
+        variant = LagrangeVariant.EQUISPACES
+
+        # Test with None (default)
+        result1 = compute_Lagrange_to_Bernstein_change_basis_1D(degree, variant)
+        assert result1.shape == (degree + 1, degree + 1)
+        assert result1.dtype == np.float64
+
+        # Test with provided out array (correct shape and dtype)
+        out = np.empty((degree + 1, degree + 1), dtype=np.float64)
+        result2 = compute_Lagrange_to_Bernstein_change_basis_1D(degree, variant, out=out)
+        assert result2 is out
+        np.testing.assert_array_almost_equal(result1, result2)
+
+        # Test with float32
+        out_f32 = np.empty((degree + 1, degree + 1), dtype=np.float32)
+        result3 = compute_Lagrange_to_Bernstein_change_basis_1D(
+            degree, variant, dtype=np.float32, out=out_f32
+        )
+        assert result3 is out_f32
+        assert result3.dtype == np.float32
+
+    def test_out_parameter_validation(self) -> None:
+        """Test that out parameter validation works correctly."""
+        degree = 2
+        variant = LagrangeVariant.EQUISPACES
+
+        # Wrong shape
+        out_wrong_shape = np.empty((degree + 2, degree + 1), dtype=np.float64)
+        with pytest.raises(ValueError, match="Output array has shape"):
+            compute_Lagrange_to_Bernstein_change_basis_1D(degree, variant, out=out_wrong_shape)
+
+        # Wrong dtype
+        out_wrong_dtype = np.empty((degree + 1, degree + 1), dtype=np.float32)
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            compute_Lagrange_to_Bernstein_change_basis_1D(degree, variant, out=out_wrong_dtype)
+
+        # Not writeable
+        out_readonly = np.empty((degree + 1, degree + 1), dtype=np.float64)
+        out_readonly.setflags(write=False)
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            compute_Lagrange_to_Bernstein_change_basis_1D(degree, variant, out=out_readonly)
 
 
 class TestBernsteinToLagrangeBasisOperator:
@@ -46,26 +91,71 @@ class TestBernsteinToLagrangeBasisOperator:
     def test_degree_zero_error(self) -> None:
         """Test that degree lower than 1 raises ValueError."""
         with pytest.raises(ValueError, match="Degree must at least 1"):
-            compute_Bernstein_to_Lagrange_change_basis(0)
+            compute_Bernstein_to_Lagrange_change_basis_1D(0)
 
     def test_negative_degree_error(self) -> None:
         """Test that negative degree raises ValueError."""
         with pytest.raises(ValueError, match="Degree must at least 1"):
-            compute_Bernstein_to_Lagrange_change_basis(-1)
+            compute_Bernstein_to_Lagrange_change_basis_1D(-1)
 
     def test_invalid_dtype_error(self) -> None:
         """Test that invalid dtype raises ValueError."""
         with pytest.raises(ValueError, match="dtype must be float32 or float64"):
-            compute_Bernstein_to_Lagrange_change_basis(2, dtype=np.int32)
+            compute_Bernstein_to_Lagrange_change_basis_1D(2, dtype=np.int32)
         with pytest.raises(ValueError, match="dtype must be float32 or float64"):
-            compute_Bernstein_to_Lagrange_change_basis(2, dtype=np.float16)
+            compute_Bernstein_to_Lagrange_change_basis_1D(2, dtype=np.float16)
+
+    def test_out_parameter(self) -> None:
+        """Test that out parameter works correctly."""
+        degree = 2
+        variant = LagrangeVariant.EQUISPACES
+
+        # Test with None (default)
+        result1 = compute_Bernstein_to_Lagrange_change_basis_1D(degree, variant)
+        assert result1.shape == (degree + 1, degree + 1)
+        assert result1.dtype == np.float64
+
+        # Test with provided out array (correct shape and dtype)
+        out = np.empty((degree + 1, degree + 1), dtype=np.float64)
+        result2 = compute_Bernstein_to_Lagrange_change_basis_1D(degree, variant, out=out)
+        assert result2 is out
+        np.testing.assert_array_almost_equal(result1, result2)
+
+        # Test with float32
+        out_f32 = np.empty((degree + 1, degree + 1), dtype=np.float32)
+        result3 = compute_Bernstein_to_Lagrange_change_basis_1D(
+            degree, variant, dtype=np.float32, out=out_f32
+        )
+        assert result3 is out_f32
+        assert result3.dtype == np.float32
+
+    def test_out_parameter_validation(self) -> None:
+        """Test that out parameter validation works correctly."""
+        degree = 2
+        variant = LagrangeVariant.EQUISPACES
+
+        # Wrong shape
+        out_wrong_shape = np.empty((degree + 2, degree + 1), dtype=np.float64)
+        with pytest.raises(ValueError, match="Output array has shape"):
+            compute_Bernstein_to_Lagrange_change_basis_1D(degree, variant, out=out_wrong_shape)
+
+        # Wrong dtype
+        out_wrong_dtype = np.empty((degree + 1, degree + 1), dtype=np.float32)
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            compute_Bernstein_to_Lagrange_change_basis_1D(degree, variant, out=out_wrong_dtype)
+
+        # Not writeable
+        out_readonly = np.empty((degree + 1, degree + 1), dtype=np.float64)
+        out_readonly.setflags(write=False)
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            compute_Bernstein_to_Lagrange_change_basis_1D(degree, variant, out=out_readonly)
 
     def test_inverse_relationship(self) -> None:
         """Test that Bernstein to Lagrange is inverse of Lagrange to Bernstein."""
         degree = 2
         variant = LagrangeVariant.EQUISPACES
-        lagrange_to_bernstein = compute_Lagrange_to_Bernstein_change_basis(degree, variant)
-        bernstein_to_lagrange = compute_Bernstein_to_Lagrange_change_basis(degree, variant)
+        lagrange_to_bernstein = compute_Lagrange_to_Bernstein_change_basis_1D(degree, variant)
+        bernstein_to_lagrange = compute_Bernstein_to_Lagrange_change_basis_1D(degree, variant)
 
         # Should be inverse matrices
         identity = lagrange_to_bernstein @ bernstein_to_lagrange
@@ -90,10 +180,10 @@ class TestBernsteinToLagrangeBasisOperator:
         bernsteins = tabulate_Bernstein_basis_1D(degree, tt)
         lagranges = tabulate_Lagrange_basis_1D(degree, variant, tt)
 
-        C = compute_Bernstein_to_Lagrange_change_basis(degree, variant)
+        C = compute_Bernstein_to_Lagrange_change_basis_1D(degree, variant)
         np.testing.assert_array_almost_equal(bernsteins @ C.T, lagranges)
 
-        C_inv = compute_Lagrange_to_Bernstein_change_basis(degree, variant)
+        C_inv = compute_Lagrange_to_Bernstein_change_basis_1D(degree, variant)
         np.testing.assert_array_almost_equal(lagranges @ C_inv.T, bernsteins)
 
 
@@ -103,8 +193,8 @@ class TestCardinalToBernsteinBasisOperator:
     def test_inverse_relationship(self) -> None:
         """Test that cardinal to Bernstein is inverse of Bernstein to cardinal."""
         degree = 2
-        bernstein_to_cardinal = compute_Bernstein_to_cardinal_change_basis(degree)
-        cardinal_to_bernstein = compute_cardinal_to_Bernstein_change_basis(degree)
+        bernstein_to_cardinal = compute_Bernstein_to_cardinal_change_basis_1D(degree)
+        cardinal_to_bernstein = compute_cardinal_to_Bernstein_change_basis_1D(degree)
 
         # Should be inverse matrices
         identity = bernstein_to_cardinal @ cardinal_to_bernstein
@@ -113,20 +203,20 @@ class TestCardinalToBernsteinBasisOperator:
     def test_negative_degree_error(self) -> None:
         """Test that negative degree raises ValueError."""
         with pytest.raises(ValueError, match="Degree must be non-negative"):
-            compute_cardinal_to_Bernstein_change_basis(-1)
+            compute_cardinal_to_Bernstein_change_basis_1D(-1)
         with pytest.raises(ValueError, match="Degree must be non-negative"):
-            compute_Bernstein_to_cardinal_change_basis(-1)
+            compute_Bernstein_to_cardinal_change_basis_1D(-1)
 
     def test_invalid_dtype_error(self) -> None:
         """Test that invalid dtype raises ValueError."""
         with pytest.raises(ValueError, match="dtype must be float32 or float64"):
-            compute_Bernstein_to_cardinal_change_basis(2, dtype=np.int32)
+            compute_Bernstein_to_cardinal_change_basis_1D(2, dtype=np.int32)
         with pytest.raises(ValueError, match="dtype must be float32 or float64"):
-            compute_Bernstein_to_cardinal_change_basis(2, dtype=np.float16)
+            compute_Bernstein_to_cardinal_change_basis_1D(2, dtype=np.float16)
         with pytest.raises(ValueError, match="dtype must be float32 or float64"):
-            compute_cardinal_to_Bernstein_change_basis(2, dtype=np.int32)
+            compute_cardinal_to_Bernstein_change_basis_1D(2, dtype=np.int32)
         with pytest.raises(ValueError, match="dtype must be float32 or float64"):
-            compute_cardinal_to_Bernstein_change_basis(2, dtype=np.float16)
+            compute_cardinal_to_Bernstein_change_basis_1D(2, dtype=np.float16)
 
     def test_values(self) -> None:
         """Test that cardinal evaluations transformed with operator return Bernstein evaluations."""
@@ -136,11 +226,71 @@ class TestCardinalToBernsteinBasisOperator:
             bernsteins = tabulate_Bernstein_basis_1D(degree, tt)
             cardinals = tabulate_cardinal_Bspline_basis_1D(degree, tt)
 
-            C = compute_cardinal_to_Bernstein_change_basis(degree)
+            C = compute_cardinal_to_Bernstein_change_basis_1D(degree)
             np.testing.assert_array_almost_equal(bernsteins, cardinals @ C.T)
 
-            C_inv = compute_Bernstein_to_cardinal_change_basis(degree)
+            C_inv = compute_Bernstein_to_cardinal_change_basis_1D(degree)
             np.testing.assert_array_almost_equal(cardinals, bernsteins @ C_inv.T)
+
+    def test_out_parameter(self) -> None:
+        """Test that out parameter works correctly for cardinal-Bernstein functions."""
+        degree = 2
+
+        # Test compute_Bernstein_to_cardinal_change_basis_1D
+        result1 = compute_Bernstein_to_cardinal_change_basis_1D(degree)
+        assert result1.shape == (degree + 1, degree + 1)
+        assert result1.dtype == np.float64
+
+        out = np.empty((degree + 1, degree + 1), dtype=np.float64)
+        result2 = compute_Bernstein_to_cardinal_change_basis_1D(degree, out=out)
+        assert result2 is out
+        np.testing.assert_array_almost_equal(result1, result2)
+
+        # Test compute_cardinal_to_Bernstein_change_basis_1D
+        result3 = compute_cardinal_to_Bernstein_change_basis_1D(degree)
+        assert result3.shape == (degree + 1, degree + 1)
+        assert result3.dtype == np.float64
+
+        out2 = np.empty((degree + 1, degree + 1), dtype=np.float64)
+        result4 = compute_cardinal_to_Bernstein_change_basis_1D(degree, out=out2)
+        assert result4 is out2
+        np.testing.assert_array_almost_equal(result3, result4)
+
+        # Test with float32
+        out_f32 = np.empty((degree + 1, degree + 1), dtype=np.float32)
+        result5 = compute_Bernstein_to_cardinal_change_basis_1D(
+            degree, dtype=np.float32, out=out_f32
+        )
+        assert result5 is out_f32
+        assert result5.dtype == np.float32
+
+    def test_out_parameter_validation(self) -> None:
+        """Test that out parameter validation works correctly for cardinal-Bernstein functions."""
+        degree = 2
+
+        # Wrong shape
+        out_wrong_shape = np.empty((degree + 2, degree + 1), dtype=np.float64)
+        with pytest.raises(ValueError, match="Output array has shape"):
+            compute_Bernstein_to_cardinal_change_basis_1D(degree, out=out_wrong_shape)
+        with pytest.raises(ValueError, match="Output array has shape"):
+            compute_cardinal_to_Bernstein_change_basis_1D(degree, out=out_wrong_shape)
+
+        # Wrong dtype
+        out_wrong_dtype = np.empty((degree + 1, degree + 1), dtype=np.float32)
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            compute_Bernstein_to_cardinal_change_basis_1D(degree, out=out_wrong_dtype)
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            compute_cardinal_to_Bernstein_change_basis_1D(degree, out=out_wrong_dtype)
+
+        # Not writeable
+        out_readonly = np.empty((degree + 1, degree + 1), dtype=np.float64)
+        out_readonly.setflags(write=False)
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            compute_Bernstein_to_cardinal_change_basis_1D(degree, out=out_readonly)
+        out_readonly2 = np.empty((degree + 1, degree + 1), dtype=np.float64)
+        out_readonly2.setflags(write=False)
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            compute_cardinal_to_Bernstein_change_basis_1D(degree, out=out_readonly2)
 
 
 class TestCreateChangeBasis:
@@ -161,10 +311,10 @@ class TestCreateChangeBasis:
             return tabulate_cardinal_Bspline_basis_1D(degree, pts)
 
         with pytest.raises(ValueError, match="Number of quadrature points must be positive"):
-            _compute_change_basis(bernstein, cardinal, n_quad_pts=0)
+            _compute_change_basis_1D(bernstein, cardinal, n_quad_pts=0)
 
         with pytest.raises(ValueError, match="Number of quadrature points must be positive"):
-            _compute_change_basis(bernstein, cardinal, n_quad_pts=-1)
+            _compute_change_basis_1D(bernstein, cardinal, n_quad_pts=-1)
 
     def test_invalid_dtype_error(self) -> None:
         """Test that invalid dtype raises ValueError."""
@@ -181,7 +331,74 @@ class TestCreateChangeBasis:
             return tabulate_cardinal_Bspline_basis_1D(degree, pts)
 
         with pytest.raises(ValueError, match="dtype must be float32 or float64"):
-            _compute_change_basis(bernstein, cardinal, n_quad_pts=3, dtype=np.int32)
+            _compute_change_basis_1D(bernstein, cardinal, n_quad_pts=3, dtype=np.int32)
 
         with pytest.raises(ValueError, match="dtype must be float32 or float64"):
-            _compute_change_basis(bernstein, cardinal, n_quad_pts=3, dtype=np.float16)
+            _compute_change_basis_1D(bernstein, cardinal, n_quad_pts=3, dtype=np.float16)
+
+    def test_out_parameter(self) -> None:
+        """Test that out parameter works correctly for _compute_change_basis_1D."""
+        degree = 2
+
+        def bernstein(
+            pts: npt.NDArray[np.float32 | np.float64],
+        ) -> npt.NDArray[np.float32 | np.float64]:
+            return tabulate_Bernstein_basis_1D(degree, pts)
+
+        def cardinal(
+            pts: npt.NDArray[np.float32 | np.float64],
+        ) -> npt.NDArray[np.float32 | np.float64]:
+            return tabulate_cardinal_Bspline_basis_1D(degree, pts)
+
+        # Test with None (default)
+        result1 = _compute_change_basis_1D(bernstein, cardinal, n_quad_pts=degree + 1)
+        assert result1.shape == (degree + 1, degree + 1)
+        assert result1.dtype == np.float64
+
+        # Test with provided out array (correct shape and dtype)
+        out = np.empty((degree + 1, degree + 1), dtype=np.float64)
+        result2 = _compute_change_basis_1D(bernstein, cardinal, n_quad_pts=degree + 1, out=out)
+        assert result2 is out
+        np.testing.assert_array_almost_equal(result1, result2)
+
+        # Test with float32
+        out_f32 = np.empty((degree + 1, degree + 1), dtype=np.float32)
+        result3 = _compute_change_basis_1D(
+            bernstein, cardinal, n_quad_pts=degree + 1, dtype=np.float32, out=out_f32
+        )
+        assert result3 is out_f32
+        assert result3.dtype == np.float32
+
+    def test_out_parameter_validation(self) -> None:
+        """Test that out parameter validation works correctly for _compute_change_basis_1D."""
+        degree = 2
+
+        def bernstein(
+            pts: npt.NDArray[np.float32 | np.float64],
+        ) -> npt.NDArray[np.float32 | np.float64]:
+            return tabulate_Bernstein_basis_1D(degree, pts)
+
+        def cardinal(
+            pts: npt.NDArray[np.float32 | np.float64],
+        ) -> npt.NDArray[np.float32 | np.float64]:
+            return tabulate_cardinal_Bspline_basis_1D(degree, pts)
+
+        # Wrong shape
+        out_wrong_shape = np.empty((degree + 2, degree + 1), dtype=np.float64)
+        with pytest.raises(ValueError, match="Output array has shape"):
+            _compute_change_basis_1D(
+                bernstein, cardinal, n_quad_pts=degree + 1, out=out_wrong_shape
+            )
+
+        # Wrong dtype
+        out_wrong_dtype = np.empty((degree + 1, degree + 1), dtype=np.float32)
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            _compute_change_basis_1D(
+                bernstein, cardinal, n_quad_pts=degree + 1, out=out_wrong_dtype
+            )
+
+        # Not writeable
+        out_readonly = np.empty((degree + 1, degree + 1), dtype=np.float64)
+        out_readonly.setflags(write=False)
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            _compute_change_basis_1D(bernstein, cardinal, n_quad_pts=degree + 1, out=out_readonly)

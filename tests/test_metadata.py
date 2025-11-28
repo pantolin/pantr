@@ -34,10 +34,10 @@ def test_package_all_exports() -> None:
         "create_uniform_open_knot_vector",
         "create_uniform_periodic_knot_vector",
         # Change of basis
-        "compute_Bernstein_to_Lagrange_change_basis",
-        "compute_Bernstein_to_cardinal_change_basis",
-        "compute_cardinal_to_Bernstein_change_basis",
-        "compute_Lagrange_to_Bernstein_change_basis",
+        "compute_Bernstein_to_Lagrange_change_basis_1D",
+        "compute_Bernstein_to_cardinal_change_basis_1D",
+        "compute_cardinal_to_Bernstein_change_basis_1D",
+        "compute_Lagrange_to_Bernstein_change_basis_1D",
         # Quadrature
         "PointsLattice",
         "create_Lagrange_points_lattice",

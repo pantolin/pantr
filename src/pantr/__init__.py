@@ -10,7 +10,7 @@ from typing import Final
 from . import (
     _basis_impl,  # noqa: F401
     _basis_utils,  # noqa: F401
-    _bspline_space_1D_impl,  # noqa: F401
+    _bspline_space_impl,  # noqa: F401
 )
 
 # Public API imports
@@ -24,17 +24,17 @@ from .basis import (
     tabulate_Lagrange_basis_1D,
     tabulate_Legendre_basis_1D,
 )
-from .bspline_space_1D import (
+from .bspline_space import (
     BsplineSpace1D,
     create_cardinal_Bspline_knot_vector,
     create_uniform_open_knot_vector,
     create_uniform_periodic_knot_vector,
 )
-from .change_basis_1D import (
-    compute_Bernstein_to_cardinal_change_basis,
-    compute_Bernstein_to_Lagrange_change_basis,
-    compute_cardinal_to_Bernstein_change_basis,
-    compute_Lagrange_to_Bernstein_change_basis,
+from .change_basis import (
+    compute_Bernstein_to_cardinal_change_basis_1D,
+    compute_Bernstein_to_Lagrange_change_basis_1D,
+    compute_cardinal_to_Bernstein_change_basis_1D,
+    compute_Lagrange_to_Bernstein_change_basis_1D,
 )
 from .quad import (
     PointsLattice,
@@ -68,10 +68,10 @@ __all__ = [
     "__author__",
     "__license__",
     "__version__",
-    "compute_Bernstein_to_Lagrange_change_basis",
-    "compute_Bernstein_to_cardinal_change_basis",
-    "compute_Lagrange_to_Bernstein_change_basis",
-    "compute_cardinal_to_Bernstein_change_basis",
+    "compute_Bernstein_to_Lagrange_change_basis_1D",
+    "compute_Bernstein_to_cardinal_change_basis_1D",
+    "compute_Lagrange_to_Bernstein_change_basis_1D",
+    "compute_cardinal_to_Bernstein_change_basis_1D",
     "create_Lagrange_points_lattice",
     "create_cardinal_Bspline_knot_vector",
     "create_uniform_open_knot_vector",

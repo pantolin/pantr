@@ -24,6 +24,7 @@ from pantr.basis import (
     tabulate_cardinal_Bspline_basis_1D,
     tabulate_Lagrange_basis,
     tabulate_Lagrange_basis_1D,
+    tabulate_Legendre_basis_1D,
 )
 from pantr.quad import PointsLattice
 from pantr.tolerance import get_conservative_tolerance, get_default_tolerance
@@ -391,6 +392,16 @@ class TestEvalBasis:
         result = _call_basis_function(basis_type, degrees, lattice)
         assert result.shape == (3, 3)
 
+    def test_points_lattice_3d(self, basis_type: BasisType) -> None:
+        """Test 3D PointsLattice input (to cover loop in _compute_basis_combinator_matrix_for_points_lattice)."""  # noqa: E501
+        degrees = [1, 1, 1]
+        pts_x = np.linspace(0.0, 1.0, 2, dtype=np.float64)
+        pts_y = np.linspace(0.0, 1.0, 2, dtype=np.float64)
+        pts_z = np.linspace(0.0, 1.0, 2, dtype=np.float64)
+        lattice = PointsLattice([pts_x, pts_y, pts_z])
+        result = _call_basis_function(basis_type, degrees, lattice)
+        assert result.shape == (8, 8)
+
     def test_funcs_order_c(self, basis_type: BasisType) -> None:
         """Test C-order (default) for basis functions."""
         degrees = [1, 1]
@@ -607,3 +618,269 @@ def test_3d_array_lagrange_variants(variant: LagrangeVariant, degrees: list[int]
     expected = np.einsum("pi,pj,pk->pijk", basis_x, basis_y, basis_z).reshape(4, expected_n_basis)
     rtol = get_default_tolerance(np.float64)
     nptest.assert_allclose(result, expected, rtol=rtol, atol=0.0)
+
+
+@pytest.mark.parametrize(
+    "basis_type", [BasisType.BERNSTEIN, BasisType.CARDINAL_BSPLINE, BasisType.LAGRANGE]
+)
+class TestOutParameter1D:
+    """Test suite for out parameter in 1D tabulate functions."""
+
+    def test_out_parameter_works(self, basis_type: BasisType) -> None:
+        """Test that out parameter works correctly."""
+        degree = 2
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+        func = _get_basis_1d_function(basis_type)
+
+        # Compute without out parameter
+        if basis_type == BasisType.LAGRANGE:
+            result1 = func(degree, LagrangeVariant.EQUISPACES, pts)
+        else:
+            result1 = func(degree, pts)
+
+        # Compute with out parameter
+        out = np.zeros_like(result1)
+        if basis_type == BasisType.LAGRANGE:
+            result2 = func(degree, LagrangeVariant.EQUISPACES, pts, out=out)
+        else:
+            result2 = func(degree, pts, out=out)
+
+        # Results should match
+        nptest.assert_allclose(result1, result2)
+        # Verify that out was used (values match exactly)
+        nptest.assert_allclose(out, result1)
+
+    def test_out_parameter_wrong_shape_raises_error(self, basis_type: BasisType) -> None:
+        """Test that out parameter with wrong shape raises ValueError."""
+        degree = 2
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+        func = _get_basis_1d_function(basis_type)
+
+        # Create out with wrong shape
+        out = np.zeros((3, 2), dtype=np.float64)  # Should be (3, 3) for degree 2
+
+        with pytest.raises(ValueError, match="Output array has shape"):
+            if basis_type == BasisType.LAGRANGE:
+                func(degree, LagrangeVariant.EQUISPACES, pts, out=out)
+            else:
+                func(degree, pts, out=out)
+
+    def test_out_parameter_wrong_dtype_raises_error(self, basis_type: BasisType) -> None:
+        """Test that out parameter with wrong dtype raises ValueError."""
+        degree = 2
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+        func = _get_basis_1d_function(basis_type)
+
+        # Create out with wrong dtype
+        out = np.zeros((3, 3), dtype=np.float32)  # Should be float64 to match pts
+
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            if basis_type == BasisType.LAGRANGE:
+                func(degree, LagrangeVariant.EQUISPACES, pts, out=out)
+            else:
+                func(degree, pts, out=out)
+
+    def test_out_parameter_float32(self, basis_type: BasisType) -> None:
+        """Test that out parameter works with float32."""
+        degree = 2
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float32)
+        func = _get_basis_1d_function(basis_type)
+
+        # Compute without out parameter
+        if basis_type == BasisType.LAGRANGE:
+            result1 = func(degree, LagrangeVariant.EQUISPACES, pts)
+        else:
+            result1 = func(degree, pts)
+
+        # Compute with out parameter
+        out = np.zeros_like(result1)
+        if basis_type == BasisType.LAGRANGE:
+            result2 = func(degree, LagrangeVariant.EQUISPACES, pts, out=out)
+        else:
+            result2 = func(degree, pts, out=out)
+
+        # Results should match
+        nptest.assert_allclose(result1, result2)
+        assert result2.dtype == np.float32
+
+
+def test_out_parameter_legendre() -> None:
+    """Test that out parameter works for Legendre basis."""
+    degree = 2
+    pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+
+    # Compute without out parameter
+    result1 = tabulate_Legendre_basis_1D(degree, pts)
+
+    # Compute with out parameter
+    out = np.zeros_like(result1)
+    result2 = tabulate_Legendre_basis_1D(degree, pts, out=out)
+
+    # Results should match
+    nptest.assert_allclose(result1, result2)
+    # Verify that out was used (values match exactly)
+    nptest.assert_allclose(out, result1)
+
+    # Test with wrong shape
+    out_wrong = np.zeros((3, 2), dtype=np.float64)
+    with pytest.raises(ValueError, match="Output array has shape"):
+        tabulate_Legendre_basis_1D(degree, pts, out=out_wrong)
+
+    # Test with wrong dtype
+    out_wrong_dtype = np.zeros((3, 3), dtype=np.float32)
+    with pytest.raises(ValueError, match="Output array has dtype"):
+        tabulate_Legendre_basis_1D(degree, pts, out=out_wrong_dtype)
+
+    # Test with read-only array
+    out_readonly = np.zeros((3, 3), dtype=np.float64)
+    out_readonly.setflags(write=False)
+    with pytest.raises(ValueError, match="Output array is not writeable"):
+        tabulate_Legendre_basis_1D(degree, pts, out=out_readonly)
+
+
+def test_out_parameter_reuse_result() -> None:
+    """Test that a result from one call can be reused as out in another call."""
+    degree = 2
+    pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+
+    # First call without out
+    result1 = tabulate_Bernstein_basis_1D(degree, pts)
+    assert result1.shape == (3, 3)
+
+    # Reuse result1 as out for second call with same input
+    result2 = tabulate_Bernstein_basis_1D(degree, pts, out=result1)
+    # Should work without error and return the same array
+    nptest.assert_allclose(result1, result2)
+
+    # Test with scalar input
+    result_scalar = tabulate_Bernstein_basis_1D(degree, 0.5)
+    assert result_scalar.shape == (3,)
+
+    # Reuse scalar result as out
+    result_scalar2 = tabulate_Bernstein_basis_1D(degree, 0.5, out=result_scalar)
+    nptest.assert_allclose(result_scalar, result_scalar2)
+
+    # Test with Lagrange
+    result_lagrange = tabulate_Lagrange_basis_1D(degree, LagrangeVariant.EQUISPACES, pts)
+    result_lagrange2 = tabulate_Lagrange_basis_1D(
+        degree, LagrangeVariant.EQUISPACES, pts, out=result_lagrange
+    )
+    nptest.assert_allclose(result_lagrange, result_lagrange2)
+
+    # Test with Legendre
+    result_legendre = tabulate_Legendre_basis_1D(degree, pts)
+    result_legendre2 = tabulate_Legendre_basis_1D(degree, pts, out=result_legendre)
+    nptest.assert_allclose(result_legendre, result_legendre2)
+
+
+@pytest.mark.parametrize(
+    "basis_type", [BasisType.BERNSTEIN, BasisType.CARDINAL_BSPLINE, BasisType.LAGRANGE]
+)
+class TestOutParameterMultidimensional:
+    """Test suite for out parameter in multidimensional tabulate functions."""
+
+    def test_out_parameter_works(self, basis_type: BasisType) -> None:
+        """Test that out parameter works correctly for multidimensional functions."""
+        degrees = [2, 3]
+        pts = np.array([[0.0, 0.5], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
+        func = _get_basis_function(basis_type)
+
+        # Compute without out parameter
+        if basis_type == BasisType.LAGRANGE:
+            result1 = func(degrees, LagrangeVariant.EQUISPACES, pts)
+        else:
+            result1 = func(degrees, pts)
+
+        # Compute with out parameter
+        out = np.zeros_like(result1)
+        if basis_type == BasisType.LAGRANGE:
+            result2 = func(degrees, LagrangeVariant.EQUISPACES, pts, out=out)
+        else:
+            result2 = func(degrees, pts, out=out)
+
+        # Results should match
+        nptest.assert_allclose(result1, result2)
+        # Verify that out was used (values match exactly)
+        nptest.assert_allclose(out, result1)
+
+    def test_out_parameter_wrong_shape_raises_error(self, basis_type: BasisType) -> None:
+        """Test that out parameter with wrong shape raises ValueError."""
+        degrees = [2, 3]
+        pts = np.array([[0.0, 0.5], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
+        func = _get_basis_function(basis_type)
+
+        # Create out with wrong shape
+        # Expected shape is (3, 12) = (3 points, (2+1)*(3+1) basis functions)
+        out = np.zeros((3, 10), dtype=np.float64)  # Wrong number of basis functions
+
+        with pytest.raises(ValueError, match="Output array has shape"):
+            if basis_type == BasisType.LAGRANGE:
+                func(degrees, LagrangeVariant.EQUISPACES, pts, out=out)
+            else:
+                func(degrees, pts, out=out)
+
+    def test_out_parameter_wrong_dtype_raises_error(self, basis_type: BasisType) -> None:
+        """Test that out parameter with wrong dtype raises ValueError."""
+        degrees = [2, 3]
+        pts = np.array([[0.0, 0.5], [0.5, 0.5], [1.0, 1.0]], dtype=np.float64)
+        func = _get_basis_function(basis_type)
+
+        # Create out with wrong dtype
+        out = np.zeros((3, 12), dtype=np.float32)  # Should be float64 to match pts
+
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            if basis_type == BasisType.LAGRANGE:
+                func(degrees, LagrangeVariant.EQUISPACES, pts, out=out)
+            else:
+                func(degrees, pts, out=out)
+
+    def test_out_parameter_float32(self, basis_type: BasisType) -> None:
+        """Test that out parameter works with float32."""
+        degrees = [2, 3]
+        pts = np.array([[0.0, 0.5], [0.5, 0.5], [1.0, 1.0]], dtype=np.float32)
+        func = _get_basis_function(basis_type)
+
+        # Compute without out parameter
+        if basis_type == BasisType.LAGRANGE:
+            result1 = func(degrees, LagrangeVariant.EQUISPACES, pts)
+        else:
+            result1 = func(degrees, pts)
+
+        # Compute with out parameter
+        out = np.zeros_like(result1)
+        if basis_type == BasisType.LAGRANGE:
+            result2 = func(degrees, LagrangeVariant.EQUISPACES, pts, out=out)
+        else:
+            result2 = func(degrees, pts, out=out)
+
+        # Results should match
+        nptest.assert_allclose(result1, result2)
+        assert result2.dtype == np.float32
+
+    def test_out_parameter_points_lattice(self, basis_type: BasisType) -> None:
+        """Test that out parameter works with PointsLattice."""
+        degrees = [2, 3]
+        pts = PointsLattice(
+            [
+                np.array([0.0, 0.5, 1.0], dtype=np.float64),
+                np.array([0.0, 1.0], dtype=np.float64),
+            ]
+        )
+        func = _get_basis_function(basis_type)
+
+        # Compute without out parameter
+        if basis_type == BasisType.LAGRANGE:
+            result1 = func(degrees, LagrangeVariant.EQUISPACES, pts)
+        else:
+            result1 = func(degrees, pts)
+
+        # Compute with out parameter
+        out = np.zeros_like(result1)
+        if basis_type == BasisType.LAGRANGE:
+            result2 = func(degrees, LagrangeVariant.EQUISPACES, pts, out=out)
+        else:
+            result2 = func(degrees, pts, out=out)
+
+        # Results should match
+        nptest.assert_allclose(result1, result2)
+        nptest.assert_allclose(out, result1)

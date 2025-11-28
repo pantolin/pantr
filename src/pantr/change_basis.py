@@ -11,15 +11,17 @@ from collections.abc import Callable
 import numpy as np
 import numpy.typing as npt
 
-from ._basis_impl import _get_lagrange_points
+from ._basis_lagrange import _get_lagrange_points
+from ._basis_utils import _validate_out_array_multidimensional
 from .basis import LagrangeVariant, tabulate_Bernstein_basis_1D, tabulate_cardinal_Bspline_basis_1D
 from .quad import get_gauss_legendre_quadrature_1D
 
 
-def compute_Lagrange_to_Bernstein_change_basis(
+def compute_Lagrange_to_Bernstein_change_basis_1D(
     degree: int,
     lagrange_variant: LagrangeVariant = LagrangeVariant.EQUISPACES,
     dtype: npt.DTypeLike = np.float64,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Construct the matrix mapping Lagrange basis evaluations to Bernstein basis evaluations.
 
@@ -32,28 +34,46 @@ def compute_Lagrange_to_Bernstein_change_basis(
             (e.g., equispaced, gauss lobatto legendre, etc). Defaults to LagrangeVariant.EQUISPACES.
         dtype (npt.DTypeLike): Floating point type for the output matrix.
             Defaults to np.float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have shape (degree+1, degree+1) and dtype matching the `dtype` parameter
+            if provided. This follows NumPy's style for output arrays. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: (degree+1, degree+1) transformation matrix C such that
-            C @ [Lagrange values] = [Bernstein values].
+            C @ [Lagrange values] = [Bernstein values]. If `out` was provided,
+            returns the same array.
 
     Raises:
-        ValueError: If degree is lower than 1 or dtype is not float32 or float64.
+        ValueError: If degree is lower than 1, dtype is not float32 or float64, or if `out` is
+            provided and has incorrect shape or dtype.
     """
     if degree < 1:
         raise ValueError("Degree must at least 1")
     if dtype not in (np.float32, np.float64):
         raise ValueError("dtype must be float32 or float64")
 
+    expected_shape = (degree + 1, degree + 1)
+    expected_dtype = dtype
+
+    if out is None:
+        out = np.empty(expected_shape, dtype=expected_dtype)
+    else:
+        _validate_out_array_multidimensional(out, expected_shape, expected_dtype)
+
     points = _get_lagrange_points(lagrange_variant, degree + 1, dtype)
 
-    return tabulate_Bernstein_basis_1D(degree, points).T
+    result = out.T
+    tabulate_Bernstein_basis_1D(degree, points, out=result)
+
+    return out
 
 
-def compute_Bernstein_to_Lagrange_change_basis(
+def compute_Bernstein_to_Lagrange_change_basis_1D(
     degree: int,
     lagrange_variant: LagrangeVariant = LagrangeVariant.EQUISPACES,
     dtype: npt.DTypeLike = np.float64,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Construct the matrix mapping Bernstein basis evaluations to Lagrange basis evaluations.
 
@@ -68,24 +88,39 @@ def compute_Bernstein_to_Lagrange_change_basis(
             (e.g., equispaced, gauss lobatto legendre, etc). Defaults to LagrangeVariant.EQUISPACES.
         dtype (npt.DTypeLike): Floating point type for the output matrix.
             Defaults to np.float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have shape (degree+1, degree+1) and dtype matching the `dtype` parameter
+            if provided. This follows NumPy's style for output arrays. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: (degree+1, degree+1) transformation matrix C such that
-            C @ [Bernstein values] = [Lagrange values].
+            C @ [Bernstein values] = [Lagrange values]. If `out` was provided,
+            returns the same array.
 
     Raises:
-        ValueError: If degree is lower than 1 or dtype is not float32 or float64.
+        ValueError: If degree is lower than 1, dtype is not float32 or float64, or if `out` is
+            provided and has incorrect shape or dtype.
     """
     if degree < 1:
         raise ValueError("Degree must at least 1")
     if dtype not in (np.float32, np.float64):
         raise ValueError("dtype must be float32 or float64")
 
-    C = compute_Lagrange_to_Bernstein_change_basis(degree, lagrange_variant, dtype)
-    return np.linalg.inv(C)
+    expected_shape = (degree + 1, degree + 1)
+    expected_dtype = dtype
+
+    if out is None:
+        out = np.empty(expected_shape, dtype=expected_dtype)
+    else:
+        _validate_out_array_multidimensional(out, expected_shape, expected_dtype)
+
+    C = compute_Lagrange_to_Bernstein_change_basis_1D(degree, lagrange_variant, dtype)
+    out[:] = np.linalg.inv(C)
+    return out
 
 
-def _compute_change_basis(
+def _compute_change_basis_1D(
     new_basis_eval: Callable[
         [npt.NDArray[np.float32 | np.float64]], npt.NDArray[np.float32 | np.float64]
     ],
@@ -94,6 +129,7 @@ def _compute_change_basis(
     ],
     n_quad_pts: int,
     dtype: npt.DTypeLike = np.float64,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Create a change of basis operator using numerical quadrature.
 
@@ -111,13 +147,20 @@ def _compute_change_basis(
             Must be positive.
         dtype (npt.DTypeLike): Floating point type for the output matrix.
             Defaults to np.float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype matching the `dtype` parameter
+            if provided. The shape is determined by the number of basis functions
+            in the old and new bases. This follows NumPy's style for output arrays.
+            Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Change of basis transformation matrix.
+            If `out` was provided, returns the same array.
 
     Raises:
-        ValueError: If number of quadrature points is not positive or dtype is not float32 or
-        float64.
+        ValueError: If number of quadrature points is not positive, dtype is not float32 or
+            float64, or if `out` is provided and has incorrect shape or dtype.
     """
     if n_quad_pts < 1:
         raise ValueError("Number of quadrature points must be positive.")
@@ -132,6 +175,17 @@ def _compute_change_basis(
     new_basis = new_basis_eval(points)
     old_basis = old_basis_eval(points)
 
+    # Determine output shape from basis evaluations
+    n_old_basis = old_basis.shape[1]
+    n_new_basis = new_basis.shape[1]
+    expected_shape = (n_old_basis, n_new_basis)
+    expected_dtype = dtype
+
+    if out is None:
+        out = np.empty(expected_shape, dtype=expected_dtype)
+    else:
+        _validate_out_array_multidimensional(out, expected_shape, expected_dtype)
+
     # 3. Compute the Gram matrix G for the new basis B: G_kj = <b_k, b_j>
     # The inner product <f, g> is approximated by sum(w_m * f(x_m) * g(x_m))
     weights_diag = np.diag(weights)
@@ -141,12 +195,14 @@ def _compute_change_basis(
     C = new_basis.T @ weights_diag @ old_basis
 
     # 5. Solve the system C = G M^T for M^T, which means M = (G^-1 C)^T
-    return np.linalg.solve(G, C).T
+    out[:] = np.linalg.solve(G, C).T
+    return out
 
 
-def compute_Bernstein_to_cardinal_change_basis(
+def compute_Bernstein_to_cardinal_change_basis_1D(
     degree: int,
     dtype: npt.DTypeLike = np.float64,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Create transformation matrix from Bernstein to cardinal B-spline basis.
 
@@ -154,19 +210,33 @@ def compute_Bernstein_to_cardinal_change_basis(
         degree (int): Polynomial degree. Must be non-negative.
         dtype (np.dtype): Floating point type for the output matrix.
             Defaults to np.float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have shape (degree+1, degree+1) and dtype matching the `dtype` parameter
+            if provided. This follows NumPy's style for output arrays. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: (degree+1, degree+1) transformation matrix C such that
-            C @ [Bernstein values] = [cardinal values].
+            C @ [Bernstein values] = [cardinal values]. If `out` was provided,
+            returns the same array.
 
     Raises:
-        ValueError: If degree is negative or dtype is not float32 or float64.
+        ValueError: If degree is negative, dtype is not float32 or float64, or if `out` is
+            provided and has incorrect shape or dtype.
     """
     if degree < 0:
         raise ValueError("Degree must be non-negative")
 
     if dtype not in (np.float32, np.float64):
         raise ValueError("dtype must be float32 or float64")
+
+    expected_shape = (degree + 1, degree + 1)
+    expected_dtype = dtype
+
+    if out is None:
+        out = np.empty(expected_shape, dtype=expected_dtype)
+    else:
+        _validate_out_array_multidimensional(out, expected_shape, expected_dtype)
 
     def bernstein(
         pts: npt.NDArray[np.float32 | np.float64],
@@ -176,17 +246,19 @@ def compute_Bernstein_to_cardinal_change_basis(
     def cardinal(pts: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32 | np.float64]:
         return tabulate_cardinal_Bspline_basis_1D(degree, pts)
 
-    return _compute_change_basis(
+    return _compute_change_basis_1D(
         new_basis_eval=bernstein,
         old_basis_eval=cardinal,
         n_quad_pts=degree + 1,
         dtype=dtype,
+        out=out,
     )
 
 
-def compute_cardinal_to_Bernstein_change_basis(
+def compute_cardinal_to_Bernstein_change_basis_1D(
     degree: int,
     dtype: npt.DTypeLike = np.float64,
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Create transformation matrix from cardinal B-spline to Bernstein basis.
 
@@ -194,19 +266,33 @@ def compute_cardinal_to_Bernstein_change_basis(
         degree (int): Polynomial degree. Must be non-negative.
         dtype (np.dtype): Floating point type for the output matrix.
             Defaults to np.float64.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have shape (degree+1, degree+1) and dtype matching the `dtype` parameter
+            if provided. This follows NumPy's style for output arrays. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: (degree+1, degree+1) transformation matrix C such that
-            C @ [cardinal values] = [Bernstein values].
+            C @ [cardinal values] = [Bernstein values]. If `out` was provided,
+            returns the same array.
 
     Raises:
-        ValueError: If degree is negative or dtype is not float32 or float64.
+        ValueError: If degree is negative, dtype is not float32 or float64, or if `out` is
+            provided and has incorrect shape or dtype.
     """
     if degree < 0:
         raise ValueError("Degree must be non-negative")
 
     if dtype not in (np.float32, np.float64):
         raise ValueError("dtype must be float32 or float64")
+
+    expected_shape = (degree + 1, degree + 1)
+    expected_dtype = dtype
+
+    if out is None:
+        out = np.empty(expected_shape, dtype=expected_dtype)
+    else:
+        _validate_out_array_multidimensional(out, expected_shape, expected_dtype)
 
     def bernstein(
         pts: npt.NDArray[np.float32 | np.float64],
@@ -216,9 +302,10 @@ def compute_cardinal_to_Bernstein_change_basis(
     def cardinal(pts: npt.NDArray[np.float32 | np.float64]) -> npt.NDArray[np.float32 | np.float64]:
         return tabulate_cardinal_Bspline_basis_1D(degree, pts)
 
-    return _compute_change_basis(
+    return _compute_change_basis_1D(
         new_basis_eval=cardinal,
         old_basis_eval=bernstein,
         n_quad_pts=degree + 1,
         dtype=dtype,
+        out=out,
     )

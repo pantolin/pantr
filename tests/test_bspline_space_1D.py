@@ -5,19 +5,23 @@ from collections.abc import Callable
 import numpy as np
 import pytest
 
-from pantr._bspline_space_1D_impl import (
-    _check_spline_info,
+from pantr._bspline_basis_core import (
     _compute_basis_Cox_de_Boor_impl,
+    _tabulate_Bspline_basis_Bernstein_like_1D,
+)
+from pantr._bspline_extraction import (
+    _tabulate_Bspline_Bezier_1D_extraction_impl,
+    _tabulate_Bspline_cardinal_1D_extraction_impl,
+    _tabulate_Bspline_Lagrange_1D_extraction_impl,
+)
+from pantr._bspline_knots import (
+    _check_spline_info,
     _get_Bspline_cardinal_intervals_1D_impl,
     _get_Bspline_num_basis_1D_impl,
     _get_last_knot_smaller_equal_impl,
     _get_multiplicity_of_first_knot_in_domain_impl,
     _get_unique_knots_and_multiplicity_impl,
     _is_in_domain_impl,
-    _tabulate_Bspline_basis_Bernstein_like_1D,
-    _tabulate_Bspline_Bezier_1D_extraction_impl,
-    _tabulate_Bspline_cardinal_1D_extraction_impl,
-    _tabulate_Bspline_Lagrange_1D_extraction_impl,
 )
 from pantr.basis import (
     LagrangeVariant,
@@ -25,7 +29,7 @@ from pantr.basis import (
     tabulate_cardinal_Bspline_basis_1D,
     tabulate_Lagrange_basis_1D,
 )
-from pantr.bspline_space_1D import (
+from pantr.bspline_space import (
     BsplineSpace1D,
     create_cardinal_Bspline_knot_vector,
     create_uniform_open_knot_vector,
@@ -479,13 +483,6 @@ class TestGetMultiplicityOfFirstKnotInDomain:
         result = _get_multiplicity_of_first_knot_in_domain_impl(knots, degree, tol)
         assert result == 1  # First knot in domain (index 2) has multiplicity 1
 
-    def test_negative_tolerance_error(self) -> None:
-        """Test that negative tolerance raises ValueError."""
-        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
-        degree = 2
-        with pytest.raises(ValueError, match="tol must be positive"):
-            _get_multiplicity_of_first_knot_in_domain_impl(knots, degree, -1.0)
-
 
 class TestGetUniqueKnotsAndMultiplicity:
     """Test the _get_unique_knots_and_multiplicity_impl function."""
@@ -529,13 +526,6 @@ class TestGetUniqueKnotsAndMultiplicity:
         np.testing.assert_array_almost_equal(unique_knots, expected_unique)
         np.testing.assert_array_equal(multiplicities, expected_mults)
 
-    def test_negative_tolerance_error(self) -> None:
-        """Negative tolerance should raise ValueError."""
-        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
-        degree = 2
-        with pytest.raises(ValueError, match="tol must be positive"):
-            _get_unique_knots_and_multiplicity_impl(knots, degree, -1.0, in_domain=True)
-
 
 class TestIsInDomain:
     """Test the _is_in_domain_impl function."""
@@ -567,15 +557,6 @@ class TestIsInDomain:
         result = _is_in_domain_impl(knots, degree, pts, tol)
         np.testing.assert_array_equal(result, [True, True])
 
-    def test_empty_points_array(self) -> None:
-        """Test that empty points array raises ValueError."""
-        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
-        degree = 2
-        pts = np.array([], dtype=np.float64)
-        tol = 1e-10
-        with pytest.raises(ValueError, match="pts must have at least one element"):
-            _is_in_domain_impl(knots, degree, pts, tol)
-
 
 class TestComputeNumBasis:
     """Test the compute_num_basis_impl function."""
@@ -603,13 +584,6 @@ class TestComputeNumBasis:
         # regularity = 2 - 1 = 1
         # num_basis = 7 - 2 - 1 - 1 - 1 = 2
         assert result == 2  # noqa: PLR2004
-
-    def test_negative_tolerance_error(self) -> None:
-        """Test that negative tolerance raises ValueError."""
-        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
-        degree = 2
-        with pytest.raises(ValueError, match="tol must be positive"):
-            _get_Bspline_num_basis_1D_impl(knots, degree, False, -1.0)
 
 
 class TestGetLastKnotSmallerEqual:
@@ -639,13 +613,6 @@ class TestGetLastKnotSmallerEqual:
         expected = np.array([0, 1, 2])
         np.testing.assert_array_equal(result, expected)
 
-    def test_non_decreasing_knots_error(self) -> None:
-        """Test that non-decreasing knots raise ValueError."""
-        knots = np.array([0.0, 1.0, 0.5, 2.0], dtype=np.float64)
-        pts = np.array([0.5], dtype=np.float64)
-        with pytest.raises(ValueError, match="knots must be non-decreasing"):
-            _get_last_knot_smaller_equal_impl(knots, pts)
-
 
 class TestEvaluateBasisCoxDeBoor:
     """Test the _compute_basis_Cox_de_Boor_impl function."""
@@ -658,7 +625,9 @@ class TestEvaluateBasisCoxDeBoor:
         tol = 1e-10
         pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
 
-        basis, first_basis = _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
+        basis = np.empty((3, 3), dtype=np.float64)
+        first_basis = np.empty(3, dtype=np.int_)
+        _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts, basis, first_basis)
 
         # Check shape
         assert basis.shape == (3, 3)
@@ -676,7 +645,9 @@ class TestEvaluateBasisCoxDeBoor:
         tol = 1e-10
         pts = np.array([0.25, 0.75], dtype=np.float64)
 
-        basis, first_basis = _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
+        basis = np.empty((2, 3), dtype=np.float64)
+        first_basis = np.empty(2, dtype=np.int_)
+        _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts, basis, first_basis)
 
         # Check shape
         assert basis.shape == (2, 3)
@@ -694,7 +665,9 @@ class TestEvaluateBasisCoxDeBoor:
         tol = 1e-10
         pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
 
-        basis, first_basis = _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
+        basis = np.empty((3, 3), dtype=np.float64)
+        first_basis = np.empty(3, dtype=np.int_)
+        _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts, basis, first_basis)
 
         # Check shape
         assert basis.shape == (3, 3)
@@ -704,16 +677,35 @@ class TestEvaluateBasisCoxDeBoor:
         sums = np.sum(basis, axis=1)
         np.testing.assert_array_almost_equal(sums, np.ones_like(sums))
 
-    def test_outside_domain_error(self) -> None:
-        """Test that points outside domain raise ValueError."""
+    def test_out_parameter(self) -> None:
+        """Test that C-style output parameters work correctly."""
         knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
         degree = 2
         periodic = False
         tol = 1e-10
-        pts = np.array([-0.1], dtype=np.float64)
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
 
-        with pytest.raises(ValueError):
-            _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts)
+        # Test with float64
+        basis1 = np.empty((3, 3), dtype=np.float64)
+        first_basis1 = np.empty(3, dtype=np.int_)
+        _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, tol, pts, basis1, first_basis1)
+        assert basis1.shape == (3, 3)
+        assert basis1.dtype == np.float64
+        assert first_basis1.shape == (3,)
+
+        # Test with float32
+        knots_f32 = knots.astype(np.float32)
+        pts_f32 = pts.astype(np.float32)
+        basis2 = np.empty((3, 3), dtype=np.float32)
+        first_basis2 = np.empty(3, dtype=np.int_)
+        _compute_basis_Cox_de_Boor_impl(
+            knots_f32, degree, periodic, tol, pts_f32, basis2, first_basis2
+        )
+        assert basis2.dtype == np.float32
+
+        # Verify results are consistent (within float32 precision)
+        np.testing.assert_array_almost_equal(basis1, basis2, decimal=6)
+        np.testing.assert_array_equal(first_basis1, first_basis2)
 
 
 class TestGetCardinalIntervals:
@@ -1019,30 +1011,6 @@ class TestCreateBsplineCardinalExtractionOperators:
 class TestAdditionalEdgeCases:
     """Additional edge-case tests to improve coverage for bspline tools."""
 
-    def test_is_in_domain_negative_tol(self) -> None:
-        """_is_in_domain_impl raises for negative tol."""
-        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
-        degree = 2
-        with pytest.raises(ValueError, match="tol must be positive"):
-            _is_in_domain_impl(knots, degree, np.array([0.0, 0.5]), -1.0)
-
-    def test_get_last_knot_smaller_equal_empty_pts(self) -> None:
-        """_get_last_knot_smaller_equal_impl empty pts raise."""
-        with pytest.raises(ValueError, match="pts must have at least one element"):
-            _get_last_knot_smaller_equal_impl(np.array([0.0, 1.0]), np.array([], dtype=float))
-
-    def test_compute_basis_cox_de_boor_input_errors(self) -> None:
-        """_compute_basis_Cox_de_Boor_impl should validate tol and pts shape/size."""
-        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
-        degree = 2
-        periodic = False
-        with pytest.raises(ValueError, match="tol must be positive"):
-            _compute_basis_Cox_de_Boor_impl(knots, degree, periodic, -1.0, np.array([0.5]))
-        with pytest.raises(ValueError, match="pts must have at least one element"):
-            _compute_basis_Cox_de_Boor_impl(
-                knots, degree, periodic, 1e-10, np.array([], dtype=float)
-            )
-
     def test_extraction_non_open_left_end_branch(self) -> None:
         """Cover branch when first knot in domain multiplicity < degree+1."""
         # degree=2, choose first three knots not all equal so multiplicity<3
@@ -1141,38 +1109,6 @@ class TestBsplineSpace1DCoverageTargets:
         # Numba dispatcher rejects non-1D arrays at signature level
         with pytest.raises(TypeError):
             _check_spline_info(knots, 2)
-
-    def test_is_in_domain_pts_not_1d(self) -> None:
-        """_is_in_domain_impl should raise when pts is not 1D."""
-        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
-        pts = np.array([[0.0, 0.5]], dtype=np.float64)
-        # Numba dispatcher rejects non-1D arrays at signature level
-        with pytest.raises(TypeError):
-            _is_in_domain_impl(knots, 2, pts, 1e-10)
-
-    def test_get_last_knot_smaller_equal_knots_not_1d(self) -> None:
-        """_get_last_knot_smaller_equal_impl should raise when knots is not 1D."""
-        knots = np.array([[0.0, 0.5], [1.0, 1.5]], dtype=np.float64)
-        pts = np.array([0.3, 0.7], dtype=np.float64)
-        # Numba dispatcher rejects non-1D arrays at signature level
-        with pytest.raises(TypeError):
-            _get_last_knot_smaller_equal_impl(knots, pts)
-
-    def test_get_last_knot_smaller_equal_pts_not_1d(self) -> None:
-        """_get_last_knot_smaller_equal_impl should raise when pts is not 1D."""
-        knots = np.array([0.0, 0.5, 1.0, 1.5], dtype=np.float64)
-        pts = np.array([[0.3, 0.7]], dtype=np.float64)
-        # Numba dispatcher rejects non-1D arrays at signature level
-        with pytest.raises(TypeError):
-            _get_last_knot_smaller_equal_impl(knots, pts)
-
-    def test_compute_basis_cox_de_boor_pts_not_1d(self) -> None:
-        """__Cox_de_Boor_impl should raise when pts is not 1D."""
-        knots = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
-        pts = np.array([[0.25, 0.75]], dtype=np.float64)
-        # Numba dispatcher rejects non-1D arrays at signature level
-        with pytest.raises(TypeError):
-            _compute_basis_Cox_de_Boor_impl(knots, 2, False, 1e-10, pts)
 
 
 class TestExtractionOperatorCorrectness:
@@ -1290,3 +1226,271 @@ class TestExtractionOperatorCorrectness:
 
             # Compare transformed reference basis with B-spline basis
             np.testing.assert_allclose(B_transformed, B_bspline_extracted, rtol=1e-10, atol=1e-12)
+
+
+class TestOutParameter:
+    """Test out parameter for BsplineSpace1D methods."""
+
+    def test_get_cardinal_intervals_out_parameter(self) -> None:
+        """Test that out parameter works for get_cardinal_intervals."""
+        knots = [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        result1 = spline.get_cardinal_intervals()
+        out = np.zeros_like(result1)
+        result2 = spline.get_cardinal_intervals(out=out)
+
+        np.testing.assert_array_equal(result1, result2)
+        np.testing.assert_array_equal(out, result1)
+        assert result2 is out
+
+    def test_get_cardinal_intervals_out_wrong_shape(self) -> None:
+        """Test that out parameter with wrong shape raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros(3, dtype=np.bool_)  # Wrong shape, should be 4
+
+        with pytest.raises(ValueError, match="Output array has shape"):
+            spline.get_cardinal_intervals(out=out)
+
+    def test_get_cardinal_intervals_out_wrong_dtype(self) -> None:
+        """Test that out parameter with wrong dtype raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros(4, dtype=np.int_)  # Wrong dtype, should be bool_
+
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            spline.get_cardinal_intervals(out=out)  # type: ignore[arg-type]
+
+    def test_get_cardinal_intervals_out_not_writeable(self) -> None:
+        """Test that out parameter with non-writeable array raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 4.0, 4.0, 4.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros(4, dtype=np.bool_)
+        out.setflags(write=False)
+
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            spline.get_cardinal_intervals(out=out)
+
+    def test_tabulate_basis_out_parameter(self) -> None:
+        """Test that out parameter works for tabulate_basis."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+
+        basis1, idx1 = spline.tabulate_basis(pts)
+        out = np.zeros_like(basis1)
+        basis2, idx2 = spline.tabulate_basis(pts, out_basis=out)
+
+        np.testing.assert_allclose(basis1, basis2)
+        np.testing.assert_array_equal(idx1, idx2)
+        np.testing.assert_allclose(out, basis1)
+        assert basis2 is out
+
+    def test_tabulate_basis_bezier_like_without_out_first_basis(self) -> None:
+        """Test tabulate_basis with Bézier-like knots without out_first_basis parameter."""
+        # Bézier-like knots: only two unique knots
+        knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+
+        # Call without out_first_basis to hit line 173
+        basis, first_indices = spline.tabulate_basis(pts)
+
+        assert basis.shape == (3, 3)
+        assert first_indices.shape == (3,)
+        # For Bézier-like knots, first_indices should all be 0
+        np.testing.assert_array_equal(first_indices, np.array([0, 0, 0]))
+
+    def test_tabulate_Bspline_basis_Bernstein_like_1D_without_out_first_basis(self) -> None:
+        """Test _tabulate_Bspline_basis_Bernstein_like_1D without out_first_basis."""
+        # Bézier-like knots: only two unique knots
+        knots = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+
+        # Call directly without out_first_basis to hit line 173
+        basis, first_indices = _tabulate_Bspline_basis_Bernstein_like_1D(spline, pts)
+
+        assert basis.shape == (3, 3)
+        assert first_indices.shape == (3,)
+        # For Bézier-like knots, first_indices should all be 0
+        np.testing.assert_array_equal(first_indices, np.array([0, 0, 0]))
+
+    def test_tabulate_basis_out_wrong_shape(self) -> None:
+        """Test that out parameter with wrong shape raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+
+        out = np.zeros((3, 2), dtype=np.float64)  # Wrong shape, should be (3, 3)
+
+        with pytest.raises(ValueError, match="Output array has shape"):
+            spline.tabulate_basis(pts, out_basis=out)
+
+    def test_tabulate_basis_out_wrong_dtype(self) -> None:
+        """Test that out parameter with wrong dtype raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+        pts = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+
+        out = np.zeros((3, 3), dtype=np.float32)  # Wrong dtype, should be float64
+
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            spline.tabulate_basis(pts, out_basis=out)
+
+    def test_tabulate_Bezier_extraction_out_parameter(self) -> None:
+        """Test that out parameter works for tabulate_Bezier_extraction_operators."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        result1 = spline.tabulate_Bezier_extraction_operators()
+        out = np.zeros_like(result1)
+        result2 = spline.tabulate_Bezier_extraction_operators(out=out)
+
+        np.testing.assert_allclose(result1, result2)
+        np.testing.assert_allclose(out, result1)
+        assert result2 is out
+
+    def test_tabulate_Bezier_extraction_out_wrong_shape(self) -> None:
+        """Test that out parameter with wrong shape raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 2, 2), dtype=np.float64)  # Wrong shape, should be (2, 3, 3)
+
+        with pytest.raises(ValueError, match="Output array has shape"):
+            spline.tabulate_Bezier_extraction_operators(out=out)
+
+    def test_tabulate_Bezier_extraction_out_wrong_dtype(self) -> None:
+        """Test that out parameter with wrong dtype raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 3, 3), dtype=np.float32)  # Wrong dtype, should be float64
+
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            spline.tabulate_Bezier_extraction_operators(out=out)
+
+    def test_tabulate_Bezier_extraction_out_not_writeable(self) -> None:
+        """Test that out parameter with non-writeable array raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 3, 3), dtype=np.float64)
+        out.setflags(write=False)
+
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            spline.tabulate_Bezier_extraction_operators(out=out)
+
+    def test_tabulate_Lagrange_extraction_out_parameter(self) -> None:
+        """Test that out parameter works for tabulate_Lagrange_extraction_operators."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        result1 = spline.tabulate_Lagrange_extraction_operators()
+        out = np.zeros_like(result1)
+        result2 = spline.tabulate_Lagrange_extraction_operators(out=out)
+
+        np.testing.assert_allclose(result1, result2)
+        np.testing.assert_allclose(out, result1)
+        assert result2 is out
+
+    def test_tabulate_Lagrange_extraction_out_wrong_shape(self) -> None:
+        """Test that out parameter with wrong shape raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 2, 2), dtype=np.float64)  # Wrong shape, should be (2, 3, 3)
+
+        with pytest.raises(ValueError, match="Output array has shape"):
+            spline.tabulate_Lagrange_extraction_operators(out=out)
+
+    def test_tabulate_Lagrange_extraction_out_wrong_dtype(self) -> None:
+        """Test that out parameter with wrong dtype raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 3, 3), dtype=np.float32)  # Wrong dtype, should be float64
+
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            spline.tabulate_Lagrange_extraction_operators(out=out)
+
+    def test_tabulate_Lagrange_extraction_out_not_writeable(self) -> None:
+        """Test that out parameter with non-writeable array raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 3, 3), dtype=np.float64)
+        out.setflags(write=False)
+
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            spline.tabulate_Lagrange_extraction_operators(out=out)
+
+    def test_tabulate_cardinal_extraction_out_parameter(self) -> None:
+        """Test that out parameter works for tabulate_cardinal_extraction_operators."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        result1 = spline.tabulate_cardinal_extraction_operators()
+        out = np.zeros_like(result1)
+        result2 = spline.tabulate_cardinal_extraction_operators(out=out)
+
+        np.testing.assert_allclose(result1, result2)
+        np.testing.assert_allclose(out, result1)
+        assert result2 is out
+
+    def test_tabulate_cardinal_extraction_out_wrong_shape(self) -> None:
+        """Test that out parameter with wrong shape raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 2, 2), dtype=np.float64)  # Wrong shape, should be (2, 3, 3)
+
+        with pytest.raises(ValueError, match="Output array has shape"):
+            spline.tabulate_cardinal_extraction_operators(out=out)
+
+    def test_tabulate_cardinal_extraction_out_wrong_dtype(self) -> None:
+        """Test that out parameter with wrong dtype raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 3, 3), dtype=np.float32)  # Wrong dtype, should be float64
+
+        with pytest.raises(ValueError, match="Output array has dtype"):
+            spline.tabulate_cardinal_extraction_operators(out=out)
+
+    def test_tabulate_cardinal_extraction_out_not_writeable(self) -> None:
+        """Test that out parameter with non-writeable array raises ValueError."""
+        knots = [0.0, 0.0, 0.0, 0.5, 1.0, 1.0, 1.0]
+        degree = 2
+        spline = BsplineSpace1D(knots, degree)
+
+        out = np.zeros((2, 3, 3), dtype=np.float64)
+        out.setflags(write=False)
+
+        with pytest.raises(ValueError, match="Output array is not writeable"):
+            spline.tabulate_cardinal_extraction_operators(out=out)

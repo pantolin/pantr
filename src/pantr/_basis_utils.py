@@ -33,22 +33,162 @@ def _normalize_points_1D(pts: npt.ArrayLike) -> npt.NDArray[np.float32 | np.floa
     return pts
 
 
-def _normalize_basis_output_1D(
-    arr: npt.NDArray[np.float32 | np.float64], input_shape: tuple[int, ...]
-) -> npt.NDArray[np.float32 | np.float64]:
-    """Normalize the output of a 1D basis function evaluation to the input shape.
-
-    The output array will be reshaped to have the same shape as the input points,
-    with the last dimension being the number of basis functions.
+def _compute_final_output_shape_1D(input_shape: tuple[int, ...], n_basis: int) -> tuple[int, ...]:
+    """Compute the final output shape for 1D basis functions.
 
     Args:
-        arr (npt.NDArray[np.float32 | np.float64]): The output array.
         input_shape (tuple[int, ...]): The shape of the input points (before normalization).
+        n_basis (int): The number of basis functions (degree + 1).
 
     Returns:
-        npt.NDArray[np.float32 | np.float64]: The normalized output array.
+        tuple[int, ...]: The final output shape.
     """
     if len(input_shape) == 0:
-        return arr.squeeze()
+        # Scalar input: output shape is (n_basis,)
+        return (n_basis,)
     else:
-        return arr.reshape(*input_shape, -1)
+        # Non-scalar input: output shape is (*input_shape, n_basis)
+        return (*input_shape, n_basis)
+
+
+def _validate_out_array_1D(
+    out: npt.NDArray[np.float32 | np.float64],
+    expected_shape: tuple[int, ...],
+    expected_dtype: npt.DTypeLike,
+) -> None:
+    """Validate that the output array has the correct shape and dtype.
+
+    This function follows NumPy's style for output array validation.
+    Checks that the array has the expected shape and dtype.
+
+    Args:
+        out (npt.NDArray[np.float32 | np.float64]): The output array to validate.
+        expected_shape (tuple[int, ...]): The expected shape of the output array.
+        expected_dtype (npt.DTypeLike): The expected dtype (should be np.float32 or np.float64).
+
+    Raises:
+        ValueError: If the array shape or dtype does not match expectations.
+    """
+    if out.shape != expected_shape:
+        raise ValueError(f"Output array has shape {out.shape}, but expected shape {expected_shape}")
+    if out.dtype != expected_dtype:
+        raise ValueError(f"Output array has dtype {out.dtype}, but expected dtype {expected_dtype}")
+    if not out.flags.writeable:
+        raise ValueError("Output array is not writeable")
+
+
+def _compute_output_shape_multidimensional(
+    n_points: int,
+    n_basis_functions: int,
+) -> tuple[int, int]:
+    """Compute the expected output shape for multidimensional basis functions.
+
+    Args:
+        n_points (int): The number of points at which to evaluate.
+        n_basis_functions (int): The total number of basis functions.
+
+    Returns:
+        tuple[int, int]: The expected output shape (n_points, n_basis_functions).
+    """
+    return (n_points, n_basis_functions)
+
+
+def _validate_out_array_multidimensional(
+    out: npt.NDArray[np.float32 | np.float64],
+    expected_shape: tuple[int, int],
+    expected_dtype: npt.DTypeLike,
+) -> None:
+    """Validate output array shape and dtype for multidimensional basis functions.
+
+    This function follows NumPy's style for output array validation.
+    Checks that the array has the expected shape and dtype.
+
+    Args:
+        out (npt.NDArray[np.float32 | np.float64]): The output array to validate.
+        expected_shape (tuple[int, int]): The expected shape of the output array
+            (n_points, n_basis_functions).
+        expected_dtype (npt.DTypeLike): The expected dtype (should be np.float32 or np.float64).
+
+    Raises:
+        ValueError: If the array shape or dtype does not match expectations.
+    """
+    if out.shape != expected_shape:
+        raise ValueError(f"Output array has shape {out.shape}, but expected shape {expected_shape}")
+    if out.dtype != expected_dtype:
+        raise ValueError(f"Output array has dtype {out.dtype}, but expected dtype {expected_dtype}")
+    if not out.flags.writeable:
+        raise ValueError("Output array is not writeable")
+
+
+def _validate_out_array_bool(
+    out: npt.NDArray[np.bool_],
+    expected_shape: tuple[int, ...],
+) -> None:
+    """Validate that the output array has the correct shape and bool dtype.
+
+    This function follows NumPy's style for output array validation.
+    Checks that the array has the expected shape and dtype.
+
+    Args:
+        out (npt.NDArray[np.bool_]): The output array to validate.
+        expected_shape (tuple[int, ...]): The expected shape of the output array.
+
+    Raises:
+        ValueError: If the array shape or dtype does not match expectations.
+    """
+    if out.shape != expected_shape:
+        raise ValueError(f"Output array has shape {out.shape}, but expected shape {expected_shape}")
+    if out.dtype != np.bool_:
+        raise ValueError(f"Output array has dtype {out.dtype}, but expected dtype bool_")
+    if not out.flags.writeable:
+        raise ValueError("Output array is not writeable")
+
+
+def _validate_out_array_3d_float(
+    out: npt.NDArray[np.float32 | np.float64],
+    expected_shape: tuple[int, int, int],
+    expected_dtype: npt.DTypeLike,
+) -> None:
+    """Validate output array shape and dtype for 3D float arrays.
+
+    This function follows NumPy's style for output array validation.
+    Checks that the array has the expected shape and dtype.
+
+    Args:
+        out (npt.NDArray[np.float32 | np.float64]): The output array to validate.
+        expected_shape (tuple[int, int, int]): The expected shape of the output array.
+        expected_dtype (npt.DTypeLike): The expected dtype (should be np.float32 or np.float64).
+
+    Raises:
+        ValueError: If the array shape or dtype does not match expectations.
+    """
+    if out.shape != expected_shape:
+        raise ValueError(f"Output array has shape {out.shape}, but expected shape {expected_shape}")
+    if out.dtype != expected_dtype:
+        raise ValueError(f"Output array has dtype {out.dtype}, but expected dtype {expected_dtype}")
+    if not out.flags.writeable:
+        raise ValueError("Output array is not writeable")
+
+
+def _validate_out_array_first_basis(
+    out: npt.NDArray[np.int_],
+    expected_shape: tuple[int, ...],
+) -> None:
+    """Validate output array shape and dtype for first basis indices.
+
+    This function follows NumPy's style for output array validation.
+    Checks that the array has the expected shape and dtype.
+
+    Args:
+        out (npt.NDArray[np.int_]): The output array to validate.
+        expected_shape (tuple[int, ...]): The expected shape of the output array.
+
+    Raises:
+        ValueError: If the array shape or dtype does not match expectations.
+    """
+    if out.shape != expected_shape:
+        raise ValueError(f"Output array has shape {out.shape}, but expected shape {expected_shape}")
+    if out.dtype != np.int_:
+        raise ValueError(f"Output array has dtype {out.dtype}, but expected dtype int_")
+    if not out.flags.writeable:
+        raise ValueError("Output array is not writeable")
