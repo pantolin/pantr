@@ -7,11 +7,12 @@ computations for both 1D and multi-dimensional B-splines.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
+import numba as nb
 import numpy as np
 import numpy.typing as npt
-from numba import njit
 from numba.core import types as nb_types
 
 from ._basis_impl import _tabulate_Bernstein_basis_1D_impl
@@ -23,8 +24,20 @@ from .change_basis import (
 )
 from .quad import PointsLattice
 
+F = TypeVar("F", bound=Callable[..., Any])
+
 if TYPE_CHECKING:
     from .bspline_space import BsplineSpace, BsplineSpace1D
+
+    # During type-checking, make the decorator a no-op that preserves types.
+    def nb_jit(*args: object, **kwargs: object) -> Callable[[F], F]:
+        def decorator(func: F) -> F:
+            return func
+
+        return decorator
+else:
+    # At runtime, use the real Numba decorator.
+    nb_jit = nb.jit  # type: ignore[attr-defined]
 
 nb_Tuple = nb_types.Tuple
 nb_bool = nb_types.boolean
@@ -34,13 +47,11 @@ intp = nb_types.intp
 void = nb_types.void
 
 
-@njit(
-    [
-        void(float32[::1], intp),
-        void(float64[::1], intp),
-    ],
+@nb_jit(
+    nopython=True,
     cache=True,
-)  # type: ignore[misc]
+    parallel=False,
+)
 def _check_spline_info(knots: npt.NDArray[np.float32 | np.float64], degree: int) -> None:
     """Validate basic constraints on B-spline knot vector and degree.
 
@@ -68,13 +79,11 @@ def _check_spline_info(knots: npt.NDArray[np.float32 | np.float64], degree: int)
         raise ValueError("knots must be non-decreasing")
 
 
-@njit(
-    [
-        intp(float32[::1], intp, float32),
-        intp(float64[::1], intp, float64),
-    ],
+@nb_jit(
+    nopython=True,
     cache=True,
-)  # type: ignore[misc]
+    parallel=False,
+)
 def _get_multiplicity_of_first_knot_in_domain_impl(
     knots: npt.NDArray[np.float32 | np.float64],
     degree: int,
@@ -102,13 +111,11 @@ def _get_multiplicity_of_first_knot_in_domain_impl(
     return int(np.sum(np.isclose(knots[: degree + 1], first_knot, atol=tol)))
 
 
-@njit(
-    [
-        nb_Tuple((float32[:], intp[:]))(float32[::1], intp, float32, nb_bool),
-        nb_Tuple((float64[:], intp[:]))(float64[::1], intp, float64, nb_bool),
-    ],
+@nb_jit(
+    nopython=True,
     cache=True,
-)  # type: ignore[misc]
+    parallel=False,
+)
 def _get_unique_knots_and_multiplicity_impl(
     knots: npt.NDArray[np.float32 | np.float64],
     degree: int,
@@ -176,12 +183,10 @@ def _get_unique_knots_and_multiplicity_impl(
     return unique_knots, mults
 
 
-@njit(  # type: ignore[misc]
-    [
-        nb_bool[:](float32[::1], intp, float32[::1], float32),
-        nb_bool[:](float64[::1], intp, float64[::1], float64),
-    ],
+@nb_jit(
+    nopython=True,
     cache=True,
+    parallel=False,
 )
 def _is_in_domain_impl(
     knots: npt.NDArray[np.float32 | np.float64],
@@ -222,13 +227,11 @@ def _is_in_domain_impl(
     )
 
 
-@njit(
-    [
-        intp(float32[::1], intp, nb_bool, float32),
-        intp(float64[::1], intp, nb_bool, float64),
-    ],
+@nb_jit(
+    nopython=True,
     cache=True,
-)  # type: ignore[misc]
+    parallel=False,
+)
 def _get_Bspline_num_basis_1D_impl(
     knots: npt.NDArray[np.float32 | np.float64],
     degree: int,
@@ -273,13 +276,11 @@ def _get_Bspline_num_basis_1D_impl(
     return num_basis
 
 
-@njit(
-    [
-        intp[:](float32[::1], float32[:]),
-        intp[:](float64[::1], float64[:]),
-    ],
+@nb_jit(
+    nopython=True,
     cache=True,
-)  # type: ignore[misc]
+    parallel=False,
+)
 def _get_last_knot_smaller_equal_impl(
     knots: npt.NDArray[np.float32 | np.float64],
     pts: npt.NDArray[np.float32 | np.float64],
@@ -310,13 +311,11 @@ def _get_last_knot_smaller_equal_impl(
     return np.searchsorted(knots, pts, side="right") - 1
 
 
-@njit(
-    [
-        nb_Tuple((float32[:, ::1], intp[:]))(float32[::1], intp, nb_bool, float32, float32[::1]),
-        nb_Tuple((float64[:, ::1], intp[:]))(float64[::1], intp, nb_bool, float64, float64[::1]),
-    ],
+@nb_jit(
+    nopython=True,
     cache=True,
-)  # type: ignore[misc]
+    parallel=False,
+)
 def _compute_basis_Cox_de_Boor_impl(
     knots: npt.NDArray[np.float32 | np.float64],
     degree: int,
@@ -406,13 +405,11 @@ def _compute_basis_Cox_de_Boor_impl(
     return basis, first_basis
 
 
-@njit(
-    [
-        nb_bool[:](float32[::1], intp, float32),
-        nb_bool[:](float64[::1], intp, float64),
-    ],
+@nb_jit(
+    nopython=True,
     cache=True,
-)  # type: ignore[misc]
+    parallel=False,
+)
 def _get_Bspline_cardinal_intervals_1D_impl(
     knots: npt.NDArray[np.float32 | np.float64], degree: int, tol: float
 ) -> npt.NDArray[np.bool_]:
@@ -461,13 +458,11 @@ def _get_Bspline_cardinal_intervals_1D_impl(
     return cardinal
 
 
-@njit(
-    [
-        float32[:, :, ::1](float32[::1], intp, float32),
-        float64[:, :, ::1](float64[::1], intp, float64),
-    ],
+@nb_jit(
+    nopython=True,
     cache=True,
-)  # type: ignore[misc]
+    parallel=False,
+)
 def _tabulate_Bspline_Bezier_1D_extraction_impl(
     knots: npt.NDArray[np.float32 | np.float64], degree: int, tol: float
 ) -> npt.NDArray[np.float32 | np.float64]:
@@ -595,10 +590,7 @@ def _tabulate_Bspline_Lagrange_1D_extraction_impl(
 
     _check_spline_info(knots, degree)
 
-    C = cast(
-        npt.NDArray[np.float32 | np.float64],
-        _tabulate_Bspline_Bezier_1D_extraction_impl(knots, degree, tol),
-    )
+    C = _tabulate_Bspline_Bezier_1D_extraction_impl(knots, degree, tol)
 
     dtype = knots.dtype
     lagr_to_bzr = compute_Lagrange_to_Bernstein_change_basis_1D(degree, lagrange_variant, dtype)
@@ -635,10 +627,7 @@ def _tabulate_Bspline_cardinal_1D_extraction_impl(
 
     _check_spline_info(knots, degree)
 
-    C = cast(
-        npt.NDArray[np.float32 | np.float64],
-        _tabulate_Bspline_Bezier_1D_extraction_impl(knots, degree, tol),
-    )
+    C = _tabulate_Bspline_Bezier_1D_extraction_impl(knots, degree, tol)
 
     dtype = knots.dtype
     card_to_bzr = compute_cardinal_to_Bernstein_change_basis_1D(degree, dtype)
@@ -1078,3 +1067,32 @@ def _tabulate_Bspline_basis_impl(
         return _tabulate_Bspline_basis_for_points_lattice_impl(spline, pts)
     else:
         return _tabulate_Bspline_basis_for_points_array_impl(spline, pts)
+
+
+def _warmup_numba_functions() -> None:
+    """Precompile numba functions with float64 signatures for faster first call.
+
+    This function triggers compilation of the numba-decorated functions
+    with float64 arrays, ensuring they are cached and ready for use.
+    """
+    # Small dummy arrays for warmup
+    knots_dummy = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=np.float64)
+    pts_dummy = np.array([0.5], dtype=np.float64)
+    tol_dummy = 1e-10
+    degree_dummy = 2
+
+    # Warmup each numba function with float64
+    _check_spline_info(knots_dummy, degree_dummy)
+    _get_multiplicity_of_first_knot_in_domain_impl(knots_dummy, degree_dummy, tol_dummy)
+    _get_unique_knots_and_multiplicity_impl(knots_dummy, degree_dummy, tol_dummy, False)
+    _is_in_domain_impl(knots_dummy, degree_dummy, pts_dummy, tol_dummy)
+    _get_Bspline_num_basis_1D_impl(knots_dummy, degree_dummy, False, tol_dummy)
+    _get_last_knot_smaller_equal_impl(knots_dummy, pts_dummy)
+    _compute_basis_Cox_de_Boor_impl(knots_dummy, degree_dummy, False, tol_dummy, pts_dummy)
+    _get_Bspline_cardinal_intervals_1D_impl(knots_dummy, degree_dummy, tol_dummy)
+    _tabulate_Bspline_Bezier_1D_extraction_impl(knots_dummy, degree_dummy, tol_dummy)
+
+
+# Precompile numba functions on module import (skip during type checking)
+if not TYPE_CHECKING:
+    _warmup_numba_functions()

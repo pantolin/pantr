@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy import typing as npt
@@ -260,10 +260,7 @@ def _cached_unique_knots_and_multiplicity(
     dtype = np.dtype(dtype_str)
     knots = np.frombuffer(knots_bytes, dtype=dtype, count=size).copy()
     tol_value = dtype.type(tol)
-    return cast(
-        tuple[npt.NDArray[np.float32 | np.float64], npt.NDArray[np.int_]],
-        _get_unique_knots_and_multiplicity_impl(knots, degree, tol_value, in_domain),
-    )
+    return _get_unique_knots_and_multiplicity_impl(knots, degree, tol_value, in_domain)
 
 
 class BsplineSpace1D:
@@ -456,10 +453,7 @@ class BsplineSpace1D:
         Returns:
             int: Number of basis functions.
         """
-        return cast(
-            int,
-            _get_Bspline_num_basis_1D_impl(self._knots, self._degree, self._periodic, self._tol),
-        )
+        return _get_Bspline_num_basis_1D_impl(self._knots, self._degree, self._periodic, self._tol)
 
     def get_unique_knots_and_multiplicity(
         self,
@@ -603,10 +597,7 @@ class BsplineSpace1D:
             >>> bspline.get_cardinal_intervals()
             array([True, False])
         """
-        return cast(
-            npt.NDArray[np.bool_],
-            _get_Bspline_cardinal_intervals_1D_impl(self._knots, self._degree, self._tol),
-        )
+        return _get_Bspline_cardinal_intervals_1D_impl(self._knots, self._degree, self._tol)
 
     def tabulate_basis(
         self, pts: npt.ArrayLike
@@ -655,10 +646,7 @@ class BsplineSpace1D:
                 to B-spline basis functions for the i-th interval as
                     C[i, :, :] @ [Bernstein values] = [B-spline values in interval].
         """
-        return cast(
-            npt.NDArray[np.float32 | np.float64],
-            _tabulate_Bspline_Bezier_1D_extraction_impl(self.knots, self.degree, self.tolerance),
-        )
+        return _tabulate_Bspline_Bezier_1D_extraction_impl(self.knots, self.degree, self.tolerance)
 
     def tabulate_Lagrange_extraction_operators(self) -> npt.NDArray[np.float32 | np.float64]:
         """Create Lagrange extraction operators of the B-spline.
