@@ -5,7 +5,7 @@ from collections.abc import Callable
 import numpy as np
 import pytest
 
-from pantr._bspline_space_1D_impl import (
+from pantr._bspline_space_impl import (
     _check_spline_info,
     _compute_basis_Cox_de_Boor_impl,
     _get_Bspline_cardinal_intervals_1D_impl,
@@ -25,7 +25,7 @@ from pantr.basis import (
     tabulate_cardinal_Bspline_basis_1D,
     tabulate_Lagrange_basis_1D,
 )
-from pantr.bspline_space_1D import (
+from pantr.bspline_space import (
     BsplineSpace1D,
     create_cardinal_Bspline_knot_vector,
     create_uniform_open_knot_vector,

@@ -10,7 +10,7 @@ from typing import Final
 from . import (
     _basis_impl,  # noqa: F401
     _basis_utils,  # noqa: F401
-    _bspline_space_1D_impl,  # noqa: F401
+    _bspline_space_impl,  # noqa: F401
 )
 
 # Public API imports
@@ -24,7 +24,7 @@ from .basis import (
     tabulate_Lagrange_basis_1D,
     tabulate_Legendre_basis_1D,
 )
-from .bspline_space_1D import (
+from .bspline_space import (
     BsplineSpace1D,
     create_cardinal_Bspline_knot_vector,
     create_uniform_open_knot_vector,
