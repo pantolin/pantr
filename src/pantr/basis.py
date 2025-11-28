@@ -205,6 +205,7 @@ def tabulate_Bernstein_basis(
     degrees: Iterable[int],
     pts: npt.ArrayLike | PointsLattice,
     funcs_order: Literal["C", "F"] = "C",
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the Bernstein basis functions at the given points.
 
@@ -221,13 +222,19 @@ def tabulate_Bernstein_basis(
         funcs_order (Literal["C", "F"]): Ordering of the basis functions: 'C' for C-order
             (last index varies fastest) or 'F' for Fortran-order (first index varies fastest).
             Defaults to 'C'.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype if provided. This follows NumPy's
+            style for output arrays. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Array of shape (n_points, n_basis_functions)
-        containing the combined basis function values.
+        containing the combined basis function values. If `out` was provided,
+        returns the same array.
 
     Raises:
-        ValueError: If any degree is negative.
+        ValueError: If any degree is negative, or if `out` is provided and has incorrect
+            shape or dtype.
     """
     if not all(isinstance(degree, int) and degree >= 0 for degree in degrees):
         raise ValueError("All degrees must be non-negative integers")
@@ -235,13 +242,14 @@ def tabulate_Bernstein_basis(
         tuple[Callable[[npt.ArrayLike], npt.NDArray[np.float32 | np.float64]]],
         tuple(lambda pts, d=degree: tabulate_Bernstein_basis_1D(d, pts) for degree in degrees),
     )
-    return _compute_basis_1D_combinator_matrix(evaluators_1D, pts, funcs_order)
+    return _compute_basis_1D_combinator_matrix(evaluators_1D, pts, funcs_order, out)
 
 
 def tabulate_cardinal_Bspline_basis(
     degrees: Iterable[int],
     pts: npt.ArrayLike | PointsLattice,
     funcs_order: Literal["C", "F"] = "C",
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the cardinal B-spline basis functions at the given points.
 
@@ -258,13 +266,19 @@ def tabulate_cardinal_Bspline_basis(
         funcs_order (Literal["C", "F"]): Ordering of the basis functions: 'C' for C-order
             (last index varies fastest) or 'F' for Fortran-order (first index varies fastest).
             Defaults to 'C'.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype if provided. This follows NumPy's
+            style for output arrays. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Array of shape (n_points, n_basis_functions)
-        containing the combined basis function values.
+        containing the combined basis function values. If `out` was provided,
+        returns the same array.
 
     Raises:
-        ValueError: If any degree is negative.
+        ValueError: If any degree is negative, or if `out` is provided and has incorrect
+            shape or dtype.
     """
     if not all(isinstance(degree, int) and degree >= 0 for degree in degrees):
         raise ValueError("All degrees must be non-negative integers")
@@ -274,7 +288,7 @@ def tabulate_cardinal_Bspline_basis(
             lambda pts, d=degree: tabulate_cardinal_Bspline_basis_1D(d, pts) for degree in degrees
         ),
     )
-    return _compute_basis_1D_combinator_matrix(evaluators_1D, pts, funcs_order)
+    return _compute_basis_1D_combinator_matrix(evaluators_1D, pts, funcs_order, out)
 
 
 def tabulate_Lagrange_basis(
@@ -282,6 +296,7 @@ def tabulate_Lagrange_basis(
     variant: LagrangeVariant,
     pts: npt.ArrayLike | PointsLattice,
     funcs_order: Literal["C", "F"] = "C",
+    out: npt.NDArray[np.float32 | np.float64] | None = None,
 ) -> npt.NDArray[np.float32 | np.float64]:
     """Evaluate the Lagrange basis functions at the given points.
 
@@ -299,13 +314,19 @@ def tabulate_Lagrange_basis(
         funcs_order (Literal["C", "F"]): Ordering of the basis functions: 'C' for C-order
             (last index varies fastest) or 'F' for Fortran-order (first index varies fastest).
             Defaults to 'C'.
+        out (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. If None, a new array is allocated.
+            Must have the correct shape and dtype if provided. This follows NumPy's
+            style for output arrays. Defaults to None.
 
     Returns:
         npt.NDArray[np.float32 | np.float64]: Array of shape (n_points, n_basis_functions)
-        containing the combined basis function values.
+        containing the combined basis function values. If `out` was provided,
+        returns the same array.
 
     Raises:
-        ValueError: If any degree is negative.
+        ValueError: If any degree is negative, or if `out` is provided and has incorrect
+            shape or dtype.
     """
     if not all(isinstance(degree, int) and degree >= 0 for degree in degrees):
         raise ValueError("All degrees must be non-negative integers")
@@ -315,4 +336,4 @@ def tabulate_Lagrange_basis(
             lambda pts, d=degree: tabulate_Lagrange_basis_1D(d, variant, pts) for degree in degrees
         ),
     )
-    return _compute_basis_1D_combinator_matrix(evaluators_1D, pts, funcs_order)
+    return _compute_basis_1D_combinator_matrix(evaluators_1D, pts, funcs_order, out)
