@@ -18,8 +18,8 @@ from ._basis_impl import _tabulate_Bernstein_basis_1D_impl
 from ._basis_utils import _normalize_basis_output_1D, _normalize_points_1D
 from .basis import LagrangeVariant
 from .change_basis import (
-    compute_cardinal_to_Bernstein_change_basis,
-    compute_Lagrange_to_Bernstein_change_basis,
+    compute_cardinal_to_Bernstein_change_basis_1D,
+    compute_Lagrange_to_Bernstein_change_basis_1D,
 )
 from .quad import PointsLattice
 
@@ -601,7 +601,7 @@ def _tabulate_Bspline_Lagrange_1D_extraction_impl(
     )
 
     dtype = knots.dtype
-    lagr_to_bzr = compute_Lagrange_to_Bernstein_change_basis(degree, lagrange_variant, dtype)
+    lagr_to_bzr = compute_Lagrange_to_Bernstein_change_basis_1D(degree, lagrange_variant, dtype)
     C[:] = C @ lagr_to_bzr
 
     return C
@@ -641,7 +641,7 @@ def _tabulate_Bspline_cardinal_1D_extraction_impl(
     )
 
     dtype = knots.dtype
-    card_to_bzr = compute_cardinal_to_Bernstein_change_basis(degree, dtype)
+    card_to_bzr = compute_cardinal_to_Bernstein_change_basis_1D(degree, dtype)
     C[:] = C @ card_to_bzr
 
     for i in np.where(_get_Bspline_cardinal_intervals_1D_impl(knots, degree, tol))[0]:
