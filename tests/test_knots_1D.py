@@ -9,7 +9,7 @@ import numpy.testing as nptest
 import numpy.typing as npt
 import pytest
 
-from pantr._bspline_space_impl import (
+from pantr._bspline_knots import (
     _get_knots_ends_and_dtype,
     _validate_knot_input,
 )

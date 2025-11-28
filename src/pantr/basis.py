@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING, Literal, cast
 import numpy as np
 import numpy.typing as npt
 
-from ._basis_impl import (
-    _compute_basis_1D_combinator_matrix,
+from ._basis_1D import (
     _tabulate_Bernstein_basis_1D_impl,
     _tabulate_cardinal_Bspline_basis_1D_impl,
     _tabulate_Lagrange_basis_1D_impl,
     _tabulate_Legendre_basis_1D_impl,
 )
+from ._basis_multidim import _compute_basis_1D_combinator_matrix
 
 if TYPE_CHECKING:
     from .quad import PointsLattice

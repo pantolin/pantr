@@ -9,16 +9,18 @@ from typing import TYPE_CHECKING
 import numpy as np
 from numpy import typing as npt
 
-from ._bspline_space_impl import (
+from ._bspline_basis_core import _tabulate_Bspline_basis_1D_impl
+from ._bspline_basis_multidim import _tabulate_Bspline_basis_impl
+from ._bspline_extraction import (
+    _tabulate_Bspline_Bezier_1D_extraction_impl,
+    _tabulate_Bspline_cardinal_1D_extraction_impl,
+    _tabulate_Bspline_Lagrange_1D_extraction_impl,
+)
+from ._bspline_knots import (
     _get_Bspline_cardinal_intervals_1D_impl,
     _get_Bspline_num_basis_1D_impl,
     _get_knots_ends_and_dtype,
     _get_unique_knots_and_multiplicity_impl,
-    _tabulate_Bspline_basis_1D_impl,
-    _tabulate_Bspline_basis_impl,
-    _tabulate_Bspline_Bezier_1D_extraction_impl,
-    _tabulate_Bspline_cardinal_1D_extraction_impl,
-    _tabulate_Bspline_Lagrange_1D_extraction_impl,
     _validate_knot_input,
 )
 from .tolerance import get_strict_tolerance
