@@ -188,7 +188,7 @@ def _get_lagrange_points(
         return get_chebyshev_gauss_2nd_kind_quadrature_1D(n_pts, dtype)[0]
 
 
-def _compute_lagrange_basis_into_array(
+def _tabulate_lagrange_basis_1D_core(
     n: int,
     variant: LagrangeVariant,
     t: npt.NDArray[np.float32 | np.float64],
@@ -501,34 +501,15 @@ def _tabulate_Lagrange_basis_1D_impl(
         ValueError: If provided degree is negative, or if `out` is provided and has incorrect
             shape or dtype.
     """
-    if n < 0:
-        raise ValueError("degree must be non-negative")
 
-    # Get input shape before normalization (handle scalars and lists)
-    if isinstance(t, np.ndarray):
-        input_shape = t.shape
-    elif isinstance(t, list | tuple):
-        input_shape = np.array(t).shape
-    else:  # scalar
-        input_shape = ()
+    def core_func(
+        n_int32: np.int32,
+        t_array: npt.NDArray[np.float32 | np.float64],
+        out_array: npt.NDArray[np.float32 | np.float64],
+    ) -> None:
+        return _tabulate_lagrange_basis_1D_core(int(n_int32), variant, t_array, out_array)
 
-    t = _normalize_points_1D(t)
-
-    num_eval = t.shape[0]
-    n_basis = n + 1
-    expected_normalized_shape = (num_eval, n_basis)
-    expected_final_shape = _compute_final_output_shape_1D(input_shape, n_basis)
-
-    # Allocate or validate output array
-    if out is None:
-        out = np.empty(expected_final_shape, dtype=t.dtype)
-    else:
-        # Validate that out has correct final output shape and dtype
-        _validate_out_array_1D(out, expected_final_shape, cast(npt.DTypeLike, t.dtype))
-
-    B_normalized = out.reshape(expected_normalized_shape)
-    _compute_lagrange_basis_into_array(n, variant, t, B_normalized)
-    return out
+    return _tabulate_basis_1D_impl_helper(n, t, core_func, out)
 
 
 def _tabulate_Legendre_basis_1D_impl(
