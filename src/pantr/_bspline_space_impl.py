@@ -1069,6 +1069,88 @@ def _get_knots_ends_and_dtype(
     return start_value, end_value, dtype_obj
 
 
+def _validate_and_check_points_in_domain(
+    spline: BsplineSpace,
+    pts: npt.NDArray[np.float32 | np.float64] | PointsLattice,
+) -> None:
+    """Validate points array/lattice structure and check all points are in domain.
+
+    This function validates that the points structure matches the spline dimensions
+    and checks that all points are within the B-spline domain for each direction.
+
+    Args:
+        spline (BsplineSpace): B-spline object defining the basis.
+        pts (npt.NDArray[np.float32 | np.float64] | PointsLattice): Evaluation points.
+            Must be a 2D array with shape (num_pts, dim) or a PointsLattice object.
+
+    Raises:
+        ValueError: If pts is not a 2D array (for arrays), if pts dimension does not
+            match spline dimension, or if any point is outside the knot vector domain.
+    """
+    if isinstance(pts, PointsLattice):
+        if pts.dim != spline.dim:
+            raise ValueError(f"pts must have {spline.dim} columns")
+        for dir in range(spline.dim):
+            if not np.all(
+                _is_in_domain_impl(
+                    spline.spaces[dir].knots,
+                    spline.spaces[dir].degree,
+                    pts.pts_per_dir[dir],
+                    spline.spaces[dir].tolerance,
+                )
+            ):
+                raise ValueError(
+                    f"One or more values in pts.pts_per_dir[{dir}] are outside the knot vector"
+                    f" domain {spline.spaces[dir].domain}"
+                )
+    else:
+        if pts.ndim != 2:  # noqa: PLR2004
+            raise ValueError("pts must be a 2D array")
+        if pts.shape[1] != spline.dim:
+            raise ValueError(f"pts must have {spline.dim} columns")
+
+        splines_1D = spline.spaces
+        for dir in range(spline.dim):
+            spline_1D = splines_1D[dir]
+            pts_dir = np.ascontiguousarray(pts[:, dir])
+            if not np.all(
+                _is_in_domain_impl(spline_1D.knots, spline_1D.degree, pts_dir, spline_1D.tolerance)
+            ):
+                raise ValueError(
+                    f"One or more values in pts[:, {dir}] are outside the knot vector"
+                    f" domain {spline.domain}"
+                )
+
+
+def _multiply_with_conditional_output(
+    B_left: npt.NDArray[np.float32 | np.float64],
+    B_right: npt.NDArray[np.float32 | np.float64],
+    is_last: bool,
+    out_basis: npt.NDArray[np.float32 | np.float64] | None = None,
+) -> npt.NDArray[np.float32 | np.float64]:
+    """Multiply two arrays with conditional use of output array.
+
+    This helper function multiplies two arrays, using the provided output array
+    only if it's the last iteration and the output array is provided.
+
+    Args:
+        B_left (npt.NDArray[np.float32 | np.float64]): Left operand for multiplication.
+        B_right (npt.NDArray[np.float32 | np.float64]): Right operand for multiplication.
+        is_last (bool): Whether this is the last multiplication operation.
+        out_basis (npt.NDArray[np.float32 | np.float64] | None): Optional output array
+            where the result will be stored. Used only if `is_last` is True.
+            Defaults to None.
+
+    Returns:
+        npt.NDArray[np.float32 | np.float64]: The result of multiplication. If `out_basis`
+            was provided and `is_last` is True, returns the same array.
+    """
+    if is_last and out_basis is not None:
+        np.multiply(B_left, B_right, out=out_basis)
+        return out_basis
+    return np.multiply(B_left, B_right)
+
+
 def _tabulate_Bspline_basis_for_points_array_impl(
     spline: BsplineSpace,
     pts: npt.NDArray[np.float32 | np.float64],
@@ -1106,23 +1188,9 @@ def _tabulate_Bspline_basis_for_points_array_impl(
         ValueError: If one or more values in pts are outside the knot vector domain, or
             if `out_basis` or `out_first_basis` is provided and has incorrect shape or dtype.
     """
-    if pts.ndim != 2:  # noqa: PLR2004
-        raise ValueError("pts must be a 2D array")
-    if pts.shape[1] != spline.dim:
-        raise ValueError(f"pts must have {spline.dim} columns")
+    _validate_and_check_points_in_domain(spline, pts)
 
     splines_1D = spline.spaces
-    for dir in range(spline.dim):
-        spline_1D = splines_1D[dir]
-        pts_dir = np.ascontiguousarray(pts[:, dir])
-        if not np.all(
-            _is_in_domain_impl(spline_1D.knots, spline_1D.degree, pts_dir, spline_1D.tolerance)
-        ):
-            raise ValueError(
-                f"One or more values in pts[:, {dir}] are outside the knot vector"
-                f" domain {spline.domain}"
-            )
-
     order = tuple(int(degree + 1) for degree in spline.degrees)
     num_pts = pts.shape[0]
     expected_basis_shape = (num_pts, *order)
@@ -1163,10 +1231,9 @@ def _tabulate_Bspline_basis_for_points_array_impl(
         Bdir_view = Bdir.reshape(expanded_dir_shape)
 
         is_last_dir = dir == (spline.dim - 1)
-        if is_last_dir and out_basis is not None:
-            B_multi = np.multiply(B_multi[..., np.newaxis], Bdir_view, out=out_basis)
-        else:
-            B_multi = np.multiply(B_multi[..., np.newaxis], Bdir_view)
+        B_multi = _multiply_with_conditional_output(
+            B_multi[..., np.newaxis], Bdir_view, is_last_dir, out_basis
+        )
 
     return out_basis, out_first_basis
 
@@ -1215,25 +1282,7 @@ def _tabulate_Bspline_basis_for_points_lattice_impl(
         ValueError: If one or more values in pts are outside the corresponding knot vector domain,
             or if `out_basis` or `out_first_basis` is provided and has incorrect shape or dtype.
     """
-    if pts.dim != spline.dim:
-        raise ValueError(f"pts must have {spline.dim} columns")
-
-    for dir in range(spline.dim):
-        if not np.all(
-            _is_in_domain_impl(
-                spline.spaces[dir].knots,
-                spline.spaces[dir].degree,
-                pts.pts_per_dir[dir],
-                spline.spaces[dir].tolerance,
-            )
-        ):
-            raise ValueError(
-                f"One or more values in pts.pts_per_dir[{dir}] are outside the knot vector"
-                f" domain {spline.spaces[dir].domain}"
-            )
-
-    # The domain check logic would typically be inserted here before
-    # the 1D tabulation, but is omitted for brevity in this simplified template.
+    _validate_and_check_points_in_domain(spline, pts)
 
     # 1. Compute 1D components
     results_1d = [s.tabulate_basis(p) for s, p in zip(spline.spaces, pts.pts_per_dir, strict=True)]
@@ -1289,10 +1338,7 @@ def _tabulate_Bspline_basis_for_points_lattice_impl(
         B_view = B.reshape(new_shape)
 
         is_last_iteration = i == len(remaining_Bs)
-        if is_last_iteration:
-            np.multiply(B_multi, B_view, out=out_basis)
-        else:
-            B_multi = np.multiply(B_multi, B_view)
+        B_multi = _multiply_with_conditional_output(B_multi, B_view, is_last_iteration, out_basis)
 
     return out_basis, out_first_basis
 
