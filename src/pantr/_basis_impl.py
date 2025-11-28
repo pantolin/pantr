@@ -41,10 +41,6 @@ else:
 
 
 @nb_jit(
-    [
-        nb.void(nb.int32, nb.float32[:], nb.float32[:, :]),
-        nb.void(nb.int32, nb.float64[:], nb.float64[:, :]),
-    ],
     nopython=True,
     cache=True,
     parallel=False,
@@ -111,10 +107,6 @@ def _tabulate_Bernstein_basis_1D_core(
 
 
 @nb_jit(
-    [
-        nb.void(nb.int32, nb.float32[:], nb.float32[:, :]),
-        nb.void(nb.int32, nb.float64[:], nb.float64[:, :]),
-    ],
     nopython=True,
     cache=True,
     parallel=False,
@@ -260,10 +252,6 @@ def _compute_lagrange_basis_into_array(
 
 
 @nb_jit(
-    [
-        nb.void(nb.int32, nb.float32[:], nb.float32[:, :]),
-        nb.void(nb.int32, nb.float64[:], nb.float64[:, :]),
-    ],
     nopython=True,
     cache=True,
     parallel=False,
@@ -723,3 +711,24 @@ def _compute_basis_1D_combinator_matrix(
         return _compute_basis_combinator_matrix_for_points_lattice(evaluators_1D, pts, order)
     else:
         return _compute_basis_combinator_matrix_for_points_array(evaluators_1D, pts, order)
+
+
+def _warmup_numba_functions() -> None:
+    """Precompile numba functions with float64 signatures for faster first call.
+
+    This function triggers compilation of the numba-decorated core functions
+    with float64 arrays, ensuring they are cached and ready for use.
+    """
+    # Small dummy arrays for warmup
+    t_dummy = np.array([0.0, 0.5, 1.0], dtype=np.float64)
+    out_dummy = np.empty((3, 2), dtype=np.float64)
+
+    # Warmup each core function with float64
+    _tabulate_Bernstein_basis_1D_core(np.int32(1), t_dummy, out_dummy)
+    _tabulate_cardinal_Bspline_basis_1D_core(np.int32(1), t_dummy, out_dummy)
+    _tabulate_Legendre_basis_1D_core(np.int32(1), t_dummy, out_dummy)
+
+
+# Precompile numba functions on module import (skip during type checking)
+if not TYPE_CHECKING:
+    _warmup_numba_functions()
