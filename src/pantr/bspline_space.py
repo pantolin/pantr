@@ -313,7 +313,7 @@ class BsplineSpace1D:
         if np.issubdtype(self._knots.dtype, np.integer):
             self._knots = self._knots.astype(np.float64)
 
-        self._tol = BsplineSpace1D._create_tolerance(self.dtype)
+        self._tol = BsplineSpace1D._get_tolerance(self.dtype)
 
         self._degree = int(degree)
         self._periodic = bool(periodic)
@@ -351,7 +351,7 @@ class BsplineSpace1D:
             knots = knots.astype(np.float64)
 
         dtype = knots.dtype
-        tol = BsplineSpace1D._create_tolerance(dtype)
+        tol = BsplineSpace1D._get_tolerance(dtype)
 
         if not isinstance(knots, np.ndarray) or knots.ndim != 1:
             raise TypeError("knots must be a 1D numpy array or Python list")
@@ -370,7 +370,7 @@ class BsplineSpace1D:
             raise ValueError("Not enough knots for the specified degree")
 
     @staticmethod
-    def _create_tolerance(dtype: npt.DTypeLike) -> float:
+    def _get_tolerance(dtype: npt.DTypeLike) -> float:
         """Create tolerance value based on data type.
 
         Right now, strict tolerance is used.
